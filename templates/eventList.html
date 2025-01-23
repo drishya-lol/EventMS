@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Event List</title>
+</head>
+<body>
+
+    <div class="input-group mb-3">
+        <input type="text" class="form-control" placeholder="Search events by keyword" id="event-search">
+        <button class="btn btn-primary" type="button" id="search-btn">Search</button>
+    </div>
+    <form id="filter-form" class="mb-4">
+        <div class="row g-3">
+            <!-- Event Categories -->
+            <div class="col-md-3">
+                <label for="category" class="form-label">Category</label>
+                <select class="form-select" id="category">
+                    <option value="">All</option>
+                    <option value="weddings">Weddings</option>
+                    <option value="conferences">Conferences</option>
+                    <option value="parties">Parties</option>
+                    <option value="concerts">Concerts</option>
+                </select>
+            </div>
+    
+            <!-- Date Range -->
+            <div class="col-md-3">
+                <label for="date" class="form-label">Date</label>
+                <input type="date" class="form-control" id="date">
+            </div>
+    
+            <!-- Location -->
+            <div class="col-md-3">
+                <label for="location" class="form-label">Location</label>
+                <input type="text" class="form-control" id="location" placeholder="Enter location">
+            </div>
+    
+            <!-- Pricing -->
+            <div class="col-md-3">
+                <label for="price" class="form-label">Max Price</label>
+                <input type="number" class="form-control" id="price" placeholder="Enter maximum price">
+            </div>
+    
+            <!-- Available Seats -->
+            <div class="col-md-3">
+                <label for="seats" class="form-label">Min Available Seats</label>
+                <input type="number" class="form-control" id="seats" placeholder="Enter minimum seats">
+            </div>
+        </div>
+        <button type="submit" class="btn btn-success mt-3">Apply Filters</button>
+    </form>
+    
+
+    <h1 class="mb-4">Events</h1>
+    <a href="{% url 'event-create' %}" class="btn btn-primary mb-3">Create New Event</a>
+    <div class="list-group">
+        {% for event in events %}
+        <a href="{% url 'event-details' event.id %}" class="list-group-item list-group-item-action">
+            <h5 class="mb-1">{{ event.name }}</h5>
+            <small>{{ event.date }} at {{ event.location }}</small>
+        </a>
+        {% endfor %}
+    </div>
+</body>
+</html>

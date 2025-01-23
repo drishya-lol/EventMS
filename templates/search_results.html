@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Searched events</title>
+</head>
+<body>
+    
+    <div class="input-group mb-3">
+        <input type="text" class="form-control" placeholder="Search events by keyword" id="event-search">
+        <button class="btn btn-primary" type="button" id="search-btn">Search</button>
+    </div>
+    <form id="filter-form" class="mb-4">
+        <div class="row g-3">
+            <!-- Event Categories -->
+            <div class="col-md-3">
+                <label for="category" class="form-label">Category</label>
+                <select class="form-select" id="category">
+                    <option value="">All</option>
+                    <option value="weddings">Weddings</option>
+                    <option value="conferences">Conferences</option>
+                    <option value="parties">Parties</option>
+                    <option value="concerts">Concerts</option>
+                </select>
+            </div>
+    
+            <!-- Date Range -->
+            <div class="col-md-3">
+                <label for="date" class="form-label">Date</label>
+                <input type="date" class="form-control" id="date">
+            </div>
+    
+            <!-- Location -->
+            <div class="col-md-3">
+                <label for="location" class="form-label">Location</label>
+                <input type="text" class="form-control" id="location" placeholder="Enter location">
+            </div>
+    
+            <!-- Pricing -->
+            <div class="col-md-3">
+                <label for="price" class="form-label">Max Price</label>
+                <input type="number" class="form-control" id="price" placeholder="Enter maximum price">
+            </div>
+    
+            <!-- Available Seats -->
+            <div class="col-md-3">
+                <label for="seats" class="form-label">Min Available Seats</label>
+                <input type="number" class="form-control" id="seats" placeholder="Enter minimum seats">
+            </div>
+        </div>
+        <button type="submit" class="btn btn-success mt-3">Apply Filters</button>
+    </form>
+    
+
+    {% for event in events %}
+    <div class="card mb-3">
+        <div class="card-body">
+            <h5 class="card-title">{{ event.name }}</h5>
+            <p class="card-text">{{ event.description }}</p>
+            <p><strong>Date:</strong> {{ event.date }}</p>
+            <p><strong>Location:</strong> {{ event.location }}</p>
+            <p><strong>Price:</strong> {{ event.price }}</p>
+            <p><strong>Available Seats:</strong> {{ event.available_seats }}</p>
+        </div>
+    </div>
+    {% endfor %}
+    
+</body>
+</html>
