@@ -50,22 +50,27 @@
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item"><a class="nav-link" href="/event-list/">Events</a></li>
-                    <li class="nav-item"><a class="nav-link" href="/vendor-list/">Vendors</a></li>
-                    <li class="nav-item"><a class="nav-link" href="/logout/">Logout</a></li>
-                </ul>
-            </div>
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item"><a class="nav-link" href="/event-list/">Events</a></li>
+                <li class="nav-item"><a class="nav-link" href="/vendor-list/">Vendors</a></li>
+                {% if user.is_authenticated %}
+                <li class="nav-item"><a class="nav-link" href="/logout/">Logout</a></li>
+                {% else %}
+                <li class="nav-item"><a class="nav-link" href="/login/">Login</a></li>
+                <li class="nav-item"><a class="nav-link" href="/register/">Register</a></li>
+                {% endif %}
+            </ul>
         </div>
     </nav>
     <div class="container">
         <h1 class="page-header">Vendor Management</h1>
+        {% if user.is_authenticated%}
         <div class="text-center">
             <a href="{% url 'vendor-create' %}" class="btn btn-primary create-btn">
                 <i class="fas fa-plus"></i> Create New Vendor
             </a>
         </div>
+        {% endif %}
         <div class="list-group">
             {% for i in vendor %}
             <a href="{% url 'vendor-details' i.id %}" class="list-group-item list-group-item-action">

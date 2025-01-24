@@ -16,7 +16,7 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
-from base.views import userRegistration, home, userLogin, userlogout, ResetPasswordView, eventCreation, EventDetailView, EventListView, eventUpdate, eventDelete, search_events, create_vendor_profile, update_vendor_profile, VendorDetailView, VendorListView, assign_vendor, vendor_assigned_events, update_vendor_availability
+from base.views import userRegistration, home, userLogin, userlogout, ResetPasswordView, eventCreation, EventDetailView, EventListView, eventUpdate, eventDelete, search_events, create_vendor_profile, update_vendor_profile, VendorDetailView, VendorListView, assign_vendor, vendor_assigned_events, update_vendor_availability, userProfile, editProfile
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -38,4 +38,6 @@ urlpatterns = [
     path('assign-vendor/<int:event_id>/', assign_vendor, name='assign_vendor'),
     path('vendor-assigned-events/<int:vendor_id>/', vendor_assigned_events, name='vendor-assigned-events'),
     path('update-vendor-availability/<int:assignment_id>/', update_vendor_availability, name='update-vendor-availability'),
+    path('user-profile/', userProfile, name='user-profile'),
+    path('edit-profile/', editProfile, name='edit-profile'),
 ]

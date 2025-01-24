@@ -54,9 +54,13 @@ class VendorForm(forms.ModelForm):
 class VendorAssignmentForm(forms.ModelForm):
     class Meta:
         model = VendorAssignment
-        fields = ['vendor', 'role', 'is_available']
+        fields = ['vendor', 'is_available']
         widgets = {
             'vendor': forms.Select(attrs={'class': 'form-control'}),
-            'role': forms.Select(attrs={'class': 'form-control'}),
             'is_available': forms.CheckboxInput(attrs={'class': 'form-control'}),
         }
+        
+class UserForm(forms.ModelForm):
+    class Meta:
+        model = User
+        fields = ['first_name', 'last_name', 'username', 'email']

@@ -53,7 +53,12 @@
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item"><a class="nav-link" href="/event-list/">Events</a></li>
                     <li class="nav-item"><a class="nav-link" href="/vendor-list/">Vendors</a></li>
+                    {% if user.is_authenticated %}
                     <li class="nav-item"><a class="nav-link" href="/logout/">Logout</a></li>
+                    {% else %}
+                    <li class="nav-item"><a class="nav-link" href="/login/">Login</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/register/">Register</a></li>
+                    {% endif %}
                 </ul>
             </div>
         </div>
@@ -61,9 +66,11 @@
     <div class="container">
         <h1 class="page-header">Event Management System</h1>
         <div class="text-center">
+            {%if user.is_authenticated%}
             <a href="{% url 'event-create' %}" class="btn btn-primary create-btn">
                 <i class="fas fa-plus"></i> Create New Event
             </a>
+            {% endif %}
         </div>
         <div class="list-group">
             {% for event in events %}

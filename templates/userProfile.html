@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Home</title>
+    <title>User Profile</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
 </head>
 
@@ -17,26 +17,29 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item"><a class="nav-link" href="/event-list/">Events</a></li>
-                    <li class="nav-item"><a class="nav-link" href="/vendor-list/">Vendors</a></li>
-                    {% if user.is_authenticated %}
-                        <li class="nav-item"><a class="nav-link" href="/event-create/">Create Event</a></li>
-                        <li class="nav-item"><a class="nav-link" href="/logout/">Logout</a></li>
-                    {% else %}
-                        <li class="nav-item"><a class="nav-link" href="/login/">Login</a></li>
-                        <li class="nav-item"><a class="nav-link" href="/register/">Register</a></li>
-                    {% endif %}
+                    <li class="nav-item"><a class="nav-link" href="/logout/">Logout</a></li>
                 </ul>
             </div>
         </div>
     </nav>
 
-    <div class="container mt-5 text-center">
-        <div class="card shadow">
-            <div class="card-header bg-primary text-white">
-                <h3>Welcome {{ user.first_name }}</h3>
-            </div>
-            <div class="card-body">
-                <p class="lead">Manage your events easily with Event Manager.</p>
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card shadow">
+                    <div class="card-header bg-primary text-white">
+                        <h3 class="mb-0">User Profile</h3>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>Username:</strong> {{ user.username }}</p>
+                        <p><strong>Email:</strong> {{ user.email }}</p>
+                        <p><strong>First Name:</strong> {{ user.first_name }}</p>
+                        <p><strong>Last Name:</strong> {{ user.last_name }}</p>
+                        <div class="mt-3">
+                            <a href="/edit-profile/" class="btn btn-secondary">Edit Profile</a>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

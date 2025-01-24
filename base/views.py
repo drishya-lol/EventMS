@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from .forms import UserRegistrationForm, LoginForm, EventCreationForm, VendorForm, VendorAssignmentForm
+from .forms import UserRegistrationForm, LoginForm, EventCreationForm, VendorForm, VendorAssignmentForm, UserForm
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth import authenticate, login, logout
 from django.urls import reverse_lazy
@@ -7,7 +7,8 @@ from django.contrib.auth.views import PasswordResetView
 from django.contrib.messages.views import SuccessMessageMixin
 from .models import Event, EventCategory, EventRegistration, Vendor, VendorCategory, VendorPerformance, Ticket, VendorAssignment
 from django.views.generic import DetailView, ListView
-from django.contrib.auth.models import Group
+from django.contrib.auth.models import Group, User
+from django.contrib.auth.decorators import login_required
 # Create your views here.
 
 def home(request):
@@ -58,6 +59,7 @@ def userlogout(request):
     logout(request)
     return redirect('home')
 
+@login_required(login_url='login')
 def eventCreation(request):
     form = EventCreationForm()
     if request.method == 'POST':
@@ -81,6 +83,7 @@ class EventListView(ListView):
     template_name = 'eventList.html'
     context_object_name = 'events'
 
+@login_required(login_url='login')
 def eventUpdate(request, pk):
     event_obj = Event.objects.get(id=pk)
     if request.method == 'POST':
@@ -94,6 +97,7 @@ def eventUpdate(request, pk):
     data = {'form': form}
     return render(request, 'eventUpdate.html', context = data)
 
+@login_required(login_url='login')
 def eventDelete(request, pk):
     event_obj = Event.objects.get(id=pk)
     event_obj.delete()
@@ -157,6 +161,7 @@ def search_events(request):
     
     return render(request, 'search_results.html', context)
 
+@login_required(login_url='login')
 def create_vendor_profile(request):
     if request.method == 'POST':
         form = VendorForm(request.POST)
@@ -169,6 +174,7 @@ def create_vendor_profile(request):
         form = VendorForm()
     return render(request, 'vendorCreate.html', {'form': form})
 
+@login_required(login_url='login')
 def update_vendor_profile(request, pk):
     vendor = Vendor.objects.get(pk=pk)
     if request.method == 'POST':
@@ -189,7 +195,8 @@ class VendorListView(ListView):
     model = Vendor
     template_name = 'vendorList.html'
     context_object_name = 'vendor'
-    
+
+@login_required(login_url='login')  
 def assign_vendor(request, event_id):
     event = get_object_or_404(Event, id=event_id)
     if request.method == 'POST':
@@ -198,14 +205,15 @@ def assign_vendor(request, event_id):
             assignment = form.save(commit=False)
             assignment.event = event
             assignment.save()
-            return redirect('event-details', event_id=event.id)
-        else:
-            form = VendorAssignmentForm()
+            return redirect('event-details', pk=event.id)
+    else:
+        form = VendorAssignmentForm()
+    
     data = {'form': form, 'event': event}
     return render(request, 'vendorAssignment.html', context=data)
 
-def vendor_assigned_events(request):
-    vendor = get_object_or_404(Vendor, user=request.user)
+def vendor_assigned_events(request,vendor_id):
+    vendor = get_object_or_404(VendorAssignment, id=vendor_id)
     assignments = vendor.assignments.select_related('event').all()
     return render(request, 'vendorAssignedEvents.html', {'assignments': assignments})
 
@@ -216,3 +224,20 @@ def update_vendor_availability(request, assignment_id):
         assignment.save()
         return redirect('vendor-assigned-events')
     return render(request, 'updateVendorAvailability.html', {'assignment': assignment})
+
+@login_required(login_url='login')
+def userProfile(request):
+    user, created = User.objects.get_or_create(id=request.user.id)
+    data = {'user': user}
+    return render(request, 'userProfile.html', context=data)
+
+def editProfile(request):
+    user = request.user
+    if request.method == 'POST':
+        form = UserForm(request.POST, instance=user)
+        if form.is_valid():
+            form.save()
+            return redirect('user-profile')
+    else:
+        form = UserForm(instance=user)
+    return render(request, 'editProfile.html', {'form': form})

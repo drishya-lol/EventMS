@@ -48,13 +48,9 @@ class VendorCategory(models.Model):
         return self.name
     
 class VendorAssignment(models.Model):
-    vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE)
+    vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE, related_name='assignments')
     event = models.ForeignKey(Event, on_delete=models.CASCADE)
-    role = models.CharField(max_length=100)
     is_available = models.BooleanField(default=True)
-    
-    def __str__(self):
-        return f"{self.vendor.name} assigned to {self.event.name} as {self.role}"
     
 class VendorPerformance(models.Model):
     vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE)
