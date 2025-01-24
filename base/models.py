@@ -35,12 +35,26 @@ class Vendor(models.Model):
     pricing = models.DecimalField(max_digits=10, decimal_places=2)
     contact_info = models.CharField(max_length=100)
     website = models.URLField(null=True)
-    categories = models.ManyToManyField('VendorCategory', related_name='vendors')
+    categories = models.ManyToManyField('VendorCategory')
+    is_approved = models.BooleanField(default=False)
+    
+    def __str__(self):
+        return self.name
     
 class VendorCategory(models.Model):
-    event = models.ForeignKey(Event, on_delete=models.CASCADE)
+    name = models.CharField(max_length=100)
+    
+    def __str__(self):
+        return self.name
+    
+class VendorAssignment(models.Model):
     vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE)
+    event = models.ForeignKey(Event, on_delete=models.CASCADE)
     role = models.CharField(max_length=100)
+    is_available = models.BooleanField(default=True)
+    
+    def __str__(self):
+        return f"{self.vendor.name} assigned to {self.event.name} as {self.role}"
     
 class VendorPerformance(models.Model):
     vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE)

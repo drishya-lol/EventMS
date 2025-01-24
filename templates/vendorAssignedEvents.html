@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vendor Assigned Events</title>
+</head>
+<body>
+    {% extends "base.html" %}
+{% block content %}
+<div class="container">
+    <h2>Assigned Events</h2>
+    <ul>
+        {% for assignment in assignments %}
+        <li>
+            <strong>{{ assignment.event.name }}</strong> - {{ assignment.role }}
+            {% if assignment.is_available %}
+                <span class="badge bg-success">Available</span>
+            {% else %}
+                <span class="badge bg-danger">Not Available</span>
+            {% endif %}
+            <a href="{% url 'update_vendor_availability' assignment.id %}" class="btn btn-sm btn-warning">Toggle Availability</a>
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endblock %}
+
+</body>
+</html>

@@ -1,5 +1,5 @@
 from django import forms
-from .models import Event, EventCategory, EventRegistration, Vendor, VendorCategory, VendorPerformance, Ticket
+from .models import Event, EventCategory, EventRegistration, Vendor, VendorCategory, VendorPerformance, Ticket, VendorAssignment
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 
@@ -36,4 +36,27 @@ class EventCreationForm(forms.ModelForm):
             'location': forms.TextInput(attrs={'class': 'form-control'}),
             'max_attendees': forms.NumberInput(attrs={'class': 'form-control'}),
             'categories': forms.SelectMultiple(attrs={'class': 'form-control'}),
+        }
+        
+class VendorForm(forms.ModelForm):
+    class Meta:
+        model = Vendor
+        fields = ['name', 'services_offered', 'pricing', 'contact_info', 'website', 'categories']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'services_offered': forms.Textarea(attrs={'class': 'form-control'}),
+            'pricing': forms.NumberInput(attrs={'class': 'form-control'}),
+            'contact_info': forms.TextInput(attrs={'class': 'form-control'}),
+            'website': forms.URLInput(attrs={'class': 'form-control'}),
+            'categories': forms.SelectMultiple(attrs={'class': 'form-control'}),
+        }
+        
+class VendorAssignmentForm(forms.ModelForm):
+    class Meta:
+        model = VendorAssignment
+        fields = ['vendor', 'role', 'is_available']
+        widgets = {
+            'vendor': forms.Select(attrs={'class': 'form-control'}),
+            'role': forms.Select(attrs={'class': 'form-control'}),
+            'is_available': forms.CheckboxInput(attrs={'class': 'form-control'}),
         }

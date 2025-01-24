@@ -1,11 +1,11 @@
-from django.shortcuts import render, redirect
-from .forms import UserRegistrationForm, LoginForm, EventCreationForm
+from django.shortcuts import render, redirect, get_object_or_404
+from .forms import UserRegistrationForm, LoginForm, EventCreationForm, VendorForm, VendorAssignmentForm
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth import authenticate, login, logout
 from django.urls import reverse_lazy
 from django.contrib.auth.views import PasswordResetView
 from django.contrib.messages.views import SuccessMessageMixin
-from .models import Event, EventCategory, EventRegistration, Vendor, VendorCategory, VendorPerformance, Ticket
+from .models import Event, EventCategory, EventRegistration, Vendor, VendorCategory, VendorPerformance, Ticket, VendorAssignment
 from django.views.generic import DetailView, ListView
 from django.contrib.auth.models import Group
 # Create your views here.
@@ -87,7 +87,7 @@ def eventUpdate(request, pk):
         form = EventCreationForm(request.POST, instance=event_obj)
         if form.is_valid():
             form.save()
-            return redirect('event-details', pk=form.pk)
+            return redirect('event-details', pk=pk)  # Use the pk parameter instead of form.pk
         else:
             return render(request, 'eventUpdate.html', context = {'form': form})
     form = EventCreationForm(instance=event_obj)
@@ -98,7 +98,6 @@ def eventDelete(request, pk):
     event_obj = Event.objects.get(id=pk)
     event_obj.delete()
     return redirect('home')
-
 
 def search_events(request):
     query = request.GET.get('query', '').strip()
@@ -157,3 +156,63 @@ def search_events(request):
     }
     
     return render(request, 'search_results.html', context)
+
+def create_vendor_profile(request):
+    if request.method == 'POST':
+        form = VendorForm(request.POST)
+        if form.is_valid():
+            vendor = form.save(commit=False)
+            vendor.user = request.user
+            vendor.save()
+            return redirect('vendor-details', pk=vendor.pk)
+    else:
+        form = VendorForm()
+    return render(request, 'vendorCreate.html', {'form': form})
+
+def update_vendor_profile(request, pk):
+    vendor = Vendor.objects.get(pk=pk)
+    if request.method == 'POST':
+        form = VendorForm(request.POST, instance=vendor)
+        if form.is_valid():
+            form.save()
+            return redirect('vendor-list')
+    else:
+        form = VendorForm(instance=vendor)
+    return render(request, 'vendorUpdate.html', {'form': form})
+
+class VendorDetailView(DetailView):
+    model = Vendor
+    template_name = 'vendorDetails.html'
+    context_object_name = 'vendor'
+
+class VendorListView(ListView):
+    model = Vendor
+    template_name = 'vendorList.html'
+    context_object_name = 'vendor'
+    
+def assign_vendor(request, event_id):
+    event = get_object_or_404(Event, id=event_id)
+    if request.method == 'POST':
+        form = VendorAssignmentForm(request.POST)
+        if form.is_valid():
+            assignment = form.save(commit=False)
+            assignment.event = event
+            assignment.save()
+            return redirect('event-details', event_id=event.id)
+        else:
+            form = VendorAssignmentForm()
+    data = {'form': form, 'event': event}
+    return render(request, 'vendorAssignment.html', context=data)
+
+def vendor_assigned_events(request):
+    vendor = get_object_or_404(Vendor, user=request.user)
+    assignments = vendor.assignments.select_related('event').all()
+    return render(request, 'vendorAssignedEvents.html', {'assignments': assignments})
+
+def update_vendor_availability(request, assignment_id):
+    assignment = get_object_or_404(VendorAssignment, id=assignment_id)
+    if request.method == 'POST':
+        assignment.is_available = not assignment.is_available
+        assignment.save()
+        return redirect('vendor-assigned-events')
+    return render(request, 'updateVendorAvailability.html', {'assignment': assignment})

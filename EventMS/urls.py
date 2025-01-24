@@ -16,7 +16,7 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
-from base.views import userRegistration, home, userLogin, userlogout, ResetPasswordView, eventCreation, EventDetailView, EventListView, eventUpdate, eventDelete, search_events
+from base.views import userRegistration, home, userLogin, userlogout, ResetPasswordView, eventCreation, EventDetailView, EventListView, eventUpdate, eventDelete, search_events, create_vendor_profile, update_vendor_profile, VendorDetailView, VendorListView, assign_vendor, vendor_assigned_events, update_vendor_availability
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -31,4 +31,11 @@ urlpatterns = [
     path('event-update/<int:pk>/', eventUpdate, name='event-update'),
     path('event-delete/<int:pk>/', eventDelete, name='event-delete'),
     path('search/', search_events, name='search_events'),
+    path('vendor-create/', create_vendor_profile, name='vendor-create'),
+    path('vendor-update/<int:pk>/', update_vendor_profile, name='vendor-update'),
+    path('vendor-details/<int:pk>/', VendorDetailView.as_view(), name='vendor-details'),
+    path('vendor-list/', VendorListView.as_view(), name='vendor-list'),
+    path('assign-vendor/<int:event_id>/', assign_vendor, name='assign_vendor'),
+    path('vendor-assigned-events/<int:vendor_id>/', vendor_assigned_events, name='vendor-assigned-events'),
+    path('update-vendor-availability/<int:assignment_id>/', update_vendor_availability, name='update-vendor-availability'),
 ]
