@@ -8,7 +8,9 @@ from django.contrib.messages.views import SuccessMessageMixin
 from .models import Event, EventCategory, EventRegistration, Vendor, VendorCategory, VendorPerformance, Ticket, VendorAssignment
 from django.views.generic import DetailView, ListView
 from django.contrib.auth.models import Group, User
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.models import Group
+
 # Create your views here.
 
 def home(request):
@@ -30,6 +32,92 @@ def userRegistration(request):
     data = {'form': form}
     return render(request, 'register.html', context = data)
 
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+def register_eventPlanner(request):
+    if request.user.groups.filter(name='Admin').exists():
+        form = UserRegistrationForm()
+        if request.method == 'POST':
+            eventManagerGroup = Group.objects.get(name='Event Planner')
+            password = request.POST.get('password')
+            newpassword = make_password(password)
+            data = request.POST.copy()
+            data['password'] = newpassword
+            form = UserRegistrationForm(data)
+            if form.is_valid():
+                user = form.save()
+                user.groups.add(eventManagerGroup)
+                user.save()
+                return redirect('login')
+            else:
+                return render(request, 'register.html', context = {'form': form})
+        data = {'form': form}
+        return render(request, 'register.html', context = data)
+    else:
+        return redirect('login')
+
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+def register_vendor(request):
+    if request.user.groups.filter(name='Admin').exists():
+        form = UserRegistrationForm()
+        if request.method == 'POST':
+            vendorGroup = Group.objects.get(name='Vendor')
+            password = request.POST.get('password')
+            newpassword = make_password(password)
+            data = request.POST.copy()
+            data['password'] = newpassword
+            form = UserRegistrationForm(data)
+            if form.is_valid():
+                user = form.save()
+                user.groups.add(vendorGroup)
+                user.save()
+                return redirect('login')
+            else:
+                return render(request, 'register.html', context = {'form': form})
+        data = {'form': form}
+        return render(request, 'register.html', context = data)
+    else:
+        return redirect('login')
+
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+def register_admin(request):
+    if request.user.groups.filter(name='Admin').exists():
+        form = UserRegistrationForm()
+        if request.method == 'POST':
+            adminGroup = Group.objects.get(name='Admin')
+            password = request.POST.get('password')
+            newpassword = make_password(password)
+            data = request.POST.copy()
+            data['password'] = newpassword
+            form = UserRegistrationForm(data)
+            if form.is_valid():
+                user = form.save()
+                user.groups.add(adminGroup)
+                user.is_superuser = True
+                user.is_staff = True
+                user.save()
+                return redirect('login')
+            else:
+                return render(request, 'register.html', context = {'form': form})
+        data = {'form': form}
+        return render(request, 'register.html', context = data)
+    else:
+        return redirect('login')
+    
+def is_Admin(user):
+    return user.groups.filter(name='Admin').exists()
+
+def is_EventPlanner(user):
+    return user.groups.filter(name='Event Planner').exists()
+
+def is_Vendor(user):
+    return user.groups.filter(name='Vendor').exists()
+
+def is_Client(user):
+    return user.groups.filter(name='Client').exists()
+
 def userLogin(request):
     form = LoginForm()
     if request.method == 'POST':
@@ -45,21 +133,15 @@ def userLogin(request):
     data = {'form': form}
     return render(request, 'login.html', context = data)
 
-class ResetPasswordView(SuccessMessageMixin, PasswordResetView):
-    template_name = 'password_reset.html'
-    email_template_name = 'password_reset_email.html'
-    subject_template_name = 'users/password_reset_subject'
-    success_message = "We've emailed you instructions for setting your password, " \
-                      "if an account exists with the email you entered. You should receive them shortly." \
-                      " If you don't receive an email, " \
-                      "please make sure you've entered the address you registered with, and check your spam folder."
-    success_url = reverse_lazy('users-home')
+def resetPassword(request):
+    pass
 
 def userlogout(request):
     logout(request)
     return redirect('home')
 
 @login_required(login_url='login')
+@user_passes_test(lambda u: is_Admin(u) or is_EventPlanner(u))
 def eventCreation(request):
     form = EventCreationForm()
     if request.method == 'POST':
@@ -84,6 +166,7 @@ class EventListView(ListView):
     context_object_name = 'events'
 
 @login_required(login_url='login')
+@user_passes_test(lambda u: is_Admin(u) or is_EventPlanner(u))
 def eventUpdate(request, pk):
     event_obj = Event.objects.get(id=pk)
     if request.method == 'POST':
@@ -98,6 +181,7 @@ def eventUpdate(request, pk):
     return render(request, 'eventUpdate.html', context = data)
 
 @login_required(login_url='login')
+@user_passes_test(lambda u: is_Admin(u) or is_EventPlanner(u))
 def eventDelete(request, pk):
     event_obj = Event.objects.get(id=pk)
     event_obj.delete()
@@ -162,6 +246,7 @@ def search_events(request):
     return render(request, 'search_results.html', context)
 
 @login_required(login_url='login')
+@user_passes_test(lambda u: is_Admin(u) or is_Vendor(u))
 def create_vendor_profile(request):
     if request.method == 'POST':
         form = VendorForm(request.POST)
@@ -175,6 +260,7 @@ def create_vendor_profile(request):
     return render(request, 'vendorCreate.html', {'form': form})
 
 @login_required(login_url='login')
+@user_passes_test(lambda u: is_Admin(u) or is_Vendor(u))
 def update_vendor_profile(request, pk):
     vendor = Vendor.objects.get(pk=pk)
     if request.method == 'POST':
@@ -197,6 +283,7 @@ class VendorListView(ListView):
     context_object_name = 'vendor'
 
 @login_required(login_url='login')  
+@user_passes_test(lambda u: is_Admin(u) or is_EventPlanner(u))
 def assign_vendor(request, event_id):
     event = get_object_or_404(Event, id=event_id)
     if request.method == 'POST':
@@ -217,6 +304,8 @@ def vendor_assigned_events(request,vendor_id):
     assignments = vendor.assignments.select_related('event').all()
     return render(request, 'vendorAssignedEvents.html', {'assignments': assignments})
 
+@login_required(login_url='login')
+@user_passes_test(lambda u: is_Admin(u) or is_Vendor(u))
 def update_vendor_availability(request, assignment_id):
     assignment = get_object_or_404(VendorAssignment, id=assignment_id)
     if request.method == 'POST':
@@ -231,6 +320,7 @@ def userProfile(request):
     data = {'user': user}
     return render(request, 'userProfile.html', context=data)
 
+@login_required(login_url='login')
 def editProfile(request):
     user = request.user
     if request.method == 'POST':
@@ -241,3 +331,4 @@ def editProfile(request):
     else:
         form = UserForm(instance=user)
     return render(request, 'editProfile.html', {'form': form})
+
