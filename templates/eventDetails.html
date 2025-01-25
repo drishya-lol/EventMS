@@ -39,6 +39,8 @@
                         <p><strong>Location:</strong> {{ event.location }}</p>
                         <p><strong>Description:</strong> {{ event.description }}</p>
                         <p><strong>Maximum Attendees:</strong> {{ event.max_attendees }}</p>
+                        <p><strong>VIP Cost:</strong> {{ event.vip_cost }}</p>
+                        <p><strong>Standard Cost:</strong> {{ event.standard_cost }}</p>
                         <div class="d-flex justify-content-between mt-4">
                             <a href="{% url 'event-update' event.id %}" class="btn btn-warning">Edit</a>
                             <a href="{% url 'event-register' event.id %}" class="btn btn-danger">Register</a>

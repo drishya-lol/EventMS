@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+import uuid
 
 # Create your models here.
 class Event(models.Model):
@@ -9,16 +10,18 @@ class Event(models.Model):
     time = models.TimeField()
     location = models.CharField(max_length=100)
     max_attendees = models.IntegerField()
+    registrations = models.IntegerField(default=0)
     categories = models.ManyToManyField('EventCategory')
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
-    registrations = models
+    vip_cost = models.IntegerField(default=2000, null=True)
+    standard_cost = models.IntegerField(default=500, null=True)
     
     def __str__(self):
         return self.name
     
 class EventCategory(models.Model):
     name = models.CharField(max_length=100)
-    description = models.TextField(null=True)
+    description = models.TextField(null=True, blank=True)
     
     def __str__(self):
         return self.name
@@ -28,7 +31,7 @@ class EventRegistration(models.Model):
     client = models.ForeignKey(User, on_delete=models.CASCADE)
     attendee_name = models.CharField(max_length=100)
     attendee_email = models.EmailField()
-    ticket_type = models.CharField(max_length=100)
+    ticket_type = models.ForeignKey('TicketType', on_delete=models.CASCADE)
     
     def __str__(self):
         return f"{self.attendee_name} - {self.event.name}"
@@ -64,19 +67,33 @@ class VendorPerformance(models.Model):
     feedback = models.TextField()
     
 class Ticket(models.Model):
-    event = models.ForeignKey(Event, on_delete=models.CASCADE)
-    ticket_type = models.CharField(max_length=100)
-    price = models.DecimalField(max_digits=10, decimal_places=2)
-    unique_code = models.CharField(max_length=100)
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, default=None)
+    ticket_type = models.ForeignKey('TicketType', on_delete=models.CASCADE)
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=1000, null=True)
+    unique_code = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     purchase_date = models.DateTimeField(auto_now_add=True)
     is_valid = models.BooleanField(default=True)
+    
+    def __str__(self):
+        return f"{self.ticket_type.name} - {self.event.name}"
+    
+class TicketType(models.Model):
+    name = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.name
 
 class Invoice(models.Model):
-    client = models.ForeignKey(User, on_delete=models.CASCADE)
-    event = models.ForeignKey(Event, on_delete=models.CASCADE)
+    client = models.ForeignKey(User, on_delete=models.CASCADE, default=None)
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, default=None)
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)
     invoice_date = models.DateTimeField(auto_now_add=True)
-    payment_status = models.CharField(max_length=100)
+    payment_status = models.CharField(max_length=100, choices=[
+        ('Pending', 'Pending'), ('Paid', 'Paid'), ('Cancelled', 'Cancelled')
+        ], default='Pending')
+    
+    def __str__(self):
+        return f"Invoice {self.id} for {self.client.username}"
     
 class Logistics(models.Model):
     event = models.ForeignKey(Event, on_delete=models.CASCADE)

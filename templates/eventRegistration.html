@@ -34,6 +34,7 @@
                         <div class="mb-4">
                             <p class="mb-1"><strong>Name:</strong> {{ user.first_name }} {{ user.last_name }}</p>
                             <p class="mb-1"><strong>Email:</strong> {{ user.email }}</p>
+                            <p class="mb-1"><strong>Event:</strong> {{ event.name }}</p>
                         </div>
                         <form method="post">
                             {% csrf_token %}

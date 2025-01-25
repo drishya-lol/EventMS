@@ -5,7 +5,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.urls import reverse_lazy
 from django.contrib.auth.views import PasswordResetView
 from django.contrib.messages.views import SuccessMessageMixin
-from .models import Event, EventCategory, EventRegistration, Vendor, VendorCategory, VendorPerformance, Ticket, VendorAssignment
+from .models import Event, EventCategory, EventRegistration, Vendor, VendorCategory, VendorPerformance, Ticket, VendorAssignment, TicketType, Invoice
 from django.views.generic import DetailView, ListView
 from django.contrib.auth.models import Group, User
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -351,7 +351,7 @@ def eventRegister(request, event_id):
             registration.registration_date = timezone.now()
 
             # Check event capacity
-            if event.max_attendees and event.registrations.count() >= event.max_attendees:
+            if event.max_attendees and event.registrations >= event.max_attendees:
                 messages.error(request, 'Sorry, this event has reached maximum capacity.')
                 return redirect('event-details', pk=event.id)
                 
@@ -364,7 +364,7 @@ def eventRegister(request, event_id):
     context = {
         'form': form,
         'event': event,
-        'remaining_spots': event.max_attendees - event.eventregistration_set.count() if event.max_attendees else None
+        'remaining_spots': event.max_attendees - event.registrations if event.max_attendees else None
     }
     return render(request, 'eventRegistration.html', context)
 
@@ -380,3 +380,48 @@ def registeredStatus(request, event_id):
         'is_user_registered': registrations.filter(user=request.user).exists(),
     }
     return render(request, 'eventDetails.html', context)
+
+@login_required(login_url='login')
+@user_passes_test(lambda u: is_Admin(u) or is_EventPlanner(u))
+def event_registration_list(request):
+    registrations = EventRegistration.objects.all()
+    return render(request, 'eventRegistrationList.html', {'registrations': registrations})
+
+@login_required
+def ticket_purchase(request, event_id):
+    event = get_object_or_404(Event, id=event_id)
+    ticket_types = TicketType.objects.all()
+    if request.method == 'POST':
+        ticket_type_id = request.POST.get('ticket_type')
+        ticket_type = get_object_or_404(TicketType, id=ticket_type_id)
+        quantity = int(request.POST.get('quantity', 1))
+        
+        total_price = ticket_type.price * quantity
+        
+        invoice = Invoice.objects.create(
+            client = request.user,
+            event = event,
+            total_amount = total_price,
+            invoice_date = timezone.now(),
+            payment_status = 'Pending'
+        )
+        
+        for _ in range(quantity):
+            Ticket.objects.create(
+                invoice=invoice,
+                ticket_type=ticket_type,
+                event=event,
+                price=ticket_type.price,
+                is_valid=True,
+            )
+        
+        messages.success(request, f'Successfully purchased {quantity} ticket(s) for {ticket_type.name}.')
+        return redirect('invoice-detail', invoice_id=invoice.id)
+    
+    return render(request, 'ticketPurchase.html', {'event': event, 'ticket_types': ticket_types})
+
+class InvoiceDetailView(DetailView):
+    model = Invoice
+    template_name = 'invoiceDetail.html'
+    context_object_name = 'invoice'
+    

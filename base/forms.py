@@ -1,5 +1,5 @@
 from django import forms
-from .models import Event, EventCategory, EventRegistration, Vendor, VendorCategory, VendorPerformance, Ticket, VendorAssignment
+from .models import Event, EventCategory, EventRegistration, Vendor, VendorCategory, VendorPerformance, Ticket, VendorAssignment, TicketType
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 
@@ -27,7 +27,7 @@ class LoginForm(forms.ModelForm):
 class EventCreationForm(forms.ModelForm):
     class Meta:
         model = Event
-        fields = ['name', 'description', 'date', 'time', 'location', 'max_attendees', 'categories']
+        fields = ['name', 'description', 'date', 'time', 'location', 'max_attendees', 'categories', 'vip_cost', 'standard_cost']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control'}),
             'description': forms.Textarea(attrs={'class': 'form-control'}),
@@ -36,6 +36,8 @@ class EventCreationForm(forms.ModelForm):
             'location': forms.TextInput(attrs={'class': 'form-control'}),
             'max_attendees': forms.NumberInput(attrs={'class': 'form-control'}),
             'categories': forms.SelectMultiple(attrs={'class': 'form-control'}),
+            'vip_cost': forms.NumberInput(attrs={'class': 'form-control'}),
+            'standard_cost': forms.NumberInput(attrs={'class': 'form-control'}),
         }
         
 class VendorForm(forms.ModelForm):
@@ -68,9 +70,9 @@ class UserForm(forms.ModelForm):
 class EventRegistrationForm(forms.ModelForm):
     class Meta:
         model = EventRegistration
-        fields = ['event', 'ticket_type']
+        fields = ['ticket_type']
         widgets = {
-            'event': forms.Select(attrs={'class': 'form-control'}),
+            # 'event': forms.Select(attrs={'class': 'form-control'}),
             'ticket_type': forms.Select(attrs={'class': 'form-control'}),
         }
         
@@ -78,5 +80,9 @@ class EventRegistrationForm(forms.ModelForm):
         user = kwargs.pop('user', None)
         super(EventRegistrationForm, self).__init__(*args, **kwargs)
         if user:
+            self.instance.event = Event.objects.get(pk=self.initial['event'])
             self.instance.attendee_name = f"{user.first_name} {user.last_name}"
             self.instance.attendee_email = user.email
+            
+        ticket_types = TicketType.objects.all()
+        self.fields['ticket_type'].queryset = ticket_types
