@@ -11,6 +11,10 @@ class Event(models.Model):
     max_attendees = models.IntegerField()
     categories = models.ManyToManyField('EventCategory')
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    registrations = models
+    
+    def __str__(self):
+        return self.name
     
 class EventCategory(models.Model):
     name = models.CharField(max_length=100)

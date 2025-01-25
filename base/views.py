@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from .forms import UserRegistrationForm, LoginForm, EventCreationForm, VendorForm, VendorAssignmentForm, UserForm
+from .forms import UserRegistrationForm, LoginForm, EventCreationForm, VendorForm, VendorAssignmentForm, UserForm, EventRegistrationForm
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth import authenticate, login, logout
 from django.urls import reverse_lazy
@@ -10,6 +10,8 @@ from django.views.generic import DetailView, ListView
 from django.contrib.auth.models import Group, User
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import Group
+from django.contrib import messages
+from django.utils import timezone
 
 # Create your views here.
 
@@ -332,3 +334,49 @@ def editProfile(request):
         form = UserForm(instance=user)
     return render(request, 'editProfile.html', {'form': form})
 
+@login_required(login_url='login')
+def eventRegister(request, event_id):
+    event = get_object_or_404(Event, id=event_id)
+    
+    # Check if user already registered
+    if EventRegistration.objects.filter(event=event, client=request.user).exists():
+        return redirect('event-details', pk=event.id)
+        
+    if request.method == 'POST':
+        form = EventRegistrationForm(request.POST)
+        if form.is_valid():
+            registration = form.save(commit=False)
+            registration.event = event
+            registration.client = request.user
+            registration.registration_date = timezone.now()
+
+            # Check event capacity
+            if event.max_attendees and event.registrations.count() >= event.max_attendees:
+                messages.error(request, 'Sorry, this event has reached maximum capacity.')
+                return redirect('event-details', pk=event.id)
+                
+            registration.save()
+            messages.success(request, 'Successfully registered for the event!')
+            return redirect('event-details', pk=event.id)
+    else:
+        form = EventRegistrationForm(initial={'client': request.user})
+        
+    context = {
+        'form': form,
+        'event': event,
+        'remaining_spots': event.max_attendees - event.eventregistration_set.count() if event.max_attendees else None
+    }
+    return render(request, 'eventRegistration.html', context)
+
+@login_required(login_url='login')
+def registeredStatus(request, event_id):
+    event = get_object_or_404(Event, id=event_id)
+    registrations = event.registrations.select_related('user').order_by('-registration_date')
+    
+    context = {
+        'event': event,
+        'registrations': registrations,
+        'total_registrations': registrations.count(),
+        'is_user_registered': registrations.filter(user=request.user).exists(),
+    }
+    return render(request, 'eventDetails.html', context)

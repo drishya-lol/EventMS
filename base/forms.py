@@ -64,3 +64,19 @@ class UserForm(forms.ModelForm):
     class Meta:
         model = User
         fields = ['first_name', 'last_name', 'username', 'email']
+        
+class EventRegistrationForm(forms.ModelForm):
+    class Meta:
+        model = EventRegistration
+        fields = ['event', 'ticket_type']
+        widgets = {
+            'event': forms.Select(attrs={'class': 'form-control'}),
+            'ticket_type': forms.Select(attrs={'class': 'form-control'}),
+        }
+        
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
+        super(EventRegistrationForm, self).__init__(*args, **kwargs)
+        if user:
+            self.instance.attendee_name = f"{user.first_name} {user.last_name}"
+            self.instance.attendee_email = user.email
