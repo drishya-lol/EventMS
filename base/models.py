@@ -111,17 +111,30 @@ class Invoice(models.Model):
     
 class Logistics(models.Model):
     event = models.ForeignKey(Event, on_delete=models.CASCADE)
-    type = models.CharField(max_length=100)
-    vendor =  models.ForeignKey(Vendor, on_delete=models.CASCADE)
-    status = models.CharField(max_length=100)
-    cost = models.DecimalField(max_digits=10, decimal_places=2)
-    
+    category = models.CharField(max_length=100, choices=[
+        ('Equipment Rentals', 'Equipment Rentals'),
+        ('Catering Services', 'Catering Services'),
+        ('Venue Bookings', 'Venue Bookings'),
+        ('Transportation', 'Transportation'),
+    ], default='Equipment Rentals')
+
+    def __str__(self):
+        return f"{self.category} for {self.event.name}"
+
 class Inventory(models.Model):
-    item_name = models.CharField(max_length=100)
+    item_name = models.ForeignKey('InventoryCategory', on_delete=models.CASCADE)
     quantity = models.IntegerField()
     event = models.ForeignKey(Event, on_delete=models.CASCADE)
-    status = models.CharField(max_length=100)
     
+    def __str__(self):
+        return self.item_name
+
+class InventoryCategory(models.Model):
+    name = models.CharField(max_length=100)
+    
+    def __str__(self):
+        return self.name
+
 class EventReview(models.Model):
     event = models.ForeignKey(Event, on_delete=models.CASCADE)
     user = models.ForeignKey(User, on_delete=models.CASCADE)

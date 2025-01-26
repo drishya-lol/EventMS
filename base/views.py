@@ -1,11 +1,11 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from .forms import UserRegistrationForm, LoginForm, EventCreationForm, VendorForm, VendorAssignmentForm, UserForm, EventRegistrationForm
+from .forms import UserRegistrationForm, LoginForm, EventCreationForm, VendorForm, VendorAssignmentForm, UserForm, EventRegistrationForm, LogisticsForm, InventoryForm
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth import authenticate, login, logout
 from django.urls import reverse_lazy
 from django.contrib.auth.views import PasswordResetView
 from django.contrib.messages.views import SuccessMessageMixin
-from .models import Event, EventCategory, EventRegistration, Vendor, VendorCategory, VendorPerformance, Ticket, VendorAssignment, TicketType, Invoice
+from .models import Event, EventCategory, EventRegistration, Vendor, VendorCategory, VendorPerformance, Ticket, VendorAssignment, TicketType, Invoice, Logistics, Inventory
 from django.views.generic import DetailView, ListView
 from django.contrib.auth.models import Group, User
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -178,7 +178,8 @@ class EventListView(ListView):
     model = Event
     template_name = 'eventList.html'
     context_object_name = 'events'
-    
+    filterset_fields = ['category', 'date', 'location', 'price']
+    search_fields = ['name', 'description']
     def get_queryset(self):
         if is_Admin(self.request.user) or is_Client(self.request.user):
             return Event.objects.all()
@@ -206,64 +207,6 @@ def eventDelete(request, pk):
     event_obj = Event.objects.get(id=pk)
     event_obj.delete()
     return redirect('home')
-
-def search_events(request):
-    query = request.GET.get('query', '').strip()
-    category = request.GET.get('category', '')
-    date = request.GET.get('date', '')
-    location = request.GET.get('location', '').strip()
-    price_min = request.GET.get('price_min')
-    price_max = request.GET.get('price_max')
-    
-    events = Event.objects.all()
-    
-    # Enhanced search with Q objects for more flexible querying
-    if query:
-        from django.db.models import Q
-        events = events.filter(
-            Q(name__icontains=query) |
-            Q(description__icontains=query) |
-            Q(organizer__icontains=query)
-        )
-    
-    if category:
-        events = events.filter(category__name=category)
-    
-    if date:
-        from datetime import datetime
-        try:
-            search_date = datetime.strptime(date, '%Y-%m-%d').date()
-            events = events.filter(date=search_date)
-        except ValueError:
-            pass
-    
-    if location:
-        events = events.filter(
-            Q(location__icontains=location) |
-            Q(venue__icontains=location)
-        )
-    
-    # Price range filtering
-    if price_min:
-        events = events.filter(price__gte=float(price_min))
-    if price_max:
-        events = events.filter(price__lte=float(price_max))
-    
-    # Order results by date and name
-    events = events.order_by('date', 'name')
-
-    context = {
-        'events': events,
-        'query': query,
-        'category': category,
-        'date': date,
-        'location': location,
-        'price_min': price_min,
-        'price_max': price_max,
-        'categories': EventCategory.objects.all()
-    }
-    
-    return render(request, 'search_results.html', context)
 
 @login_required(login_url='login')
 @user_passes_test(lambda u: is_Admin(u) or is_Vendor(u))
@@ -476,4 +419,51 @@ class InvoiceDetailView(DetailView):
     model = Invoice
     template_name = 'invoiceDetail.html'
     context_object_name = 'invoice'
-    
+
+@login_required(login_url='login')
+@user_passes_test(lambda u: is_Admin(u) or is_EventPlanner(u))    
+def logistics_management(request, event_id):
+    event = Event.objects.get(id=event_id)
+    logistics = Logistics.objects.filter(event=event)
+    if request.method == 'POST':
+        form = LogisticsForm(request.POST)
+        if form.is_valid():
+            logistic = form.save(commit=False)
+            logistic.event = event
+            logistic.save()
+            return redirect('logistics', event_id=event_id)
+    else:
+        form = LogisticsForm()
+    return render(request, 'logisticsManagement.html', {'event': event, 'logistics': logistics, 'form': form})
+
+@login_required(login_url='login')
+@user_passes_test(lambda u: is_Admin(u) or is_EventPlanner(u))
+def logistics_delete(request, logistics_id):
+    logistics = get_object_or_404(Logistics, id=logistics_id)
+    event_id = logistics.event.id
+    logistics.delete()
+    return redirect('logistics', event_id=event_id)
+
+@login_required(login_url='login')
+@user_passes_test(lambda u: is_Admin(u) or is_EventPlanner(u))
+def inventory_tracking(request, event_id):
+    event = Event.objects.get(id=event_id)
+    inventory = Inventory.objects.filter(event=event)
+    if request.method == 'POST':
+        form = InventoryForm(request.POST)
+        if form.is_valid():
+            item = form.save(commit=False)
+            item.event = event
+            item.save()
+            return redirect('inventory', event_id=event_id)
+    else:
+        form = InventoryForm()
+    return render(request, 'inventoryTracking.html', {'event': event, 'inventory': inventory, 'form': form})
+
+@login_required(login_url='login')
+@user_passes_test(lambda u: is_Admin(u) or is_EventPlanner(u))
+def inventory_delete(request, inventory_id):
+    inventory = get_object_or_404(Inventory, id=inventory_id)
+    event_id = inventory.event.id
+    inventory.delete()
+    return redirect('inventory', event_id=event_id)

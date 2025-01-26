@@ -1,3 +1,4 @@
+{% load events%}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,21 +9,8 @@
 </head>
 
 <body class="bg-light">
-    <nav class="navbar navbar-expand-lg navbar-light bg-light">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="/">Event Manager</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item"><a class="nav-link" href="/event-list/">Events</a></li>
-                    <li class="nav-item"><a class="nav-link" href="/vendor-list/">Vendors</a></li>
-                    <li class="nav-item"><a class="nav-link" href="/logout/">Logout</a></li>
-                </ul>
-            </div>
-        </div>
-    </nav>
+    
+    {% include 'navbar.html' %}
     <div class="container mt-5">
         <div class="row justify-content-center">
             <div class="col-md-8">

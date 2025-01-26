@@ -16,7 +16,7 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
-from base.views import userRegistration, home, userLogin, userlogout, eventCreation, EventDetailView, EventListView, eventUpdate, eventDelete, search_events, create_vendor_profile, update_vendor_profile, VendorDetailView, VendorListView, assign_vendor, vendor_assigned_events, update_vendor_availability, userProfile, editProfile, register_eventPlanner, register_vendor, register_admin, eventRegister, eventUnregister, event_registration_list, ticket_purchase, InvoiceDetailView, registeredStatus
+from base.views import userRegistration, home, userLogin, userlogout, eventCreation, EventDetailView, EventListView, eventUpdate, eventDelete, create_vendor_profile, update_vendor_profile, VendorDetailView, VendorListView, assign_vendor, vendor_assigned_events, update_vendor_availability, userProfile, editProfile, register_eventPlanner, register_vendor, register_admin, eventRegister, eventUnregister, event_registration_list, ticket_purchase, InvoiceDetailView, registeredStatus, logistics_management, logistics_delete, inventory_tracking, inventory_delete
 from base import views
 
 urlpatterns = [
@@ -30,7 +30,6 @@ urlpatterns = [
     path('event-details/<int:pk>/', EventDetailView.as_view(), name='event-details'),
     path('event-update/<int:pk>/', eventUpdate, name='event-update'),
     path('event-delete/<int:pk>/', eventDelete, name='event-delete'),
-    path('search/', search_events, name='search_events'),
     path('vendor-create/', create_vendor_profile, name='vendor-create'),
     path('vendor-update/<int:pk>/', update_vendor_profile, name='vendor-update'),
     path('vendor-details/<int:pk>/', VendorDetailView.as_view(), name='vendor-details'),
@@ -49,5 +48,8 @@ urlpatterns = [
     path('ticket-purchase/<int:event_id>/', ticket_purchase, name='ticket-purchase'),
     path('invoice/<int:invoice_id>/', InvoiceDetailView.as_view(), name='invoice-detail'),
     path('event-details/<int:event_id>/status/', registeredStatus, name='registered-status'),
-
+    path('logistics/<int:event_id>/', logistics_management, name='logistics'),
+    path('logistics/<int:logistics_id>/delete/', logistics_delete, name='logistics-delete'),
+    path('inventory/<int:event_id>/', inventory_tracking, name='inventory'),
+    path('inventory/<int:inventory_id>/delete/', inventory_delete, name='inventory-delete'),
 ]

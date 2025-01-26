@@ -1,5 +1,5 @@
 from django import forms
-from .models import Event, EventCategory, EventRegistration, Vendor, VendorCategory, VendorPerformance, Ticket, VendorAssignment, TicketType
+from .models import Event, EventCategory, EventRegistration, Vendor, VendorCategory, VendorPerformance, Ticket, VendorAssignment, TicketType, Logistics, Inventory
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 
@@ -86,3 +86,20 @@ class EventRegistrationForm(forms.ModelForm):
             
         ticket_types = TicketType.objects.all()
         self.fields['ticket_type'].queryset = ticket_types
+
+class LogisticsForm(forms.ModelForm):
+    class Meta:
+        model = Logistics
+        fields = ['category']
+        widgets = {
+            'category': forms.Select(attrs={'class': 'form-control'}),
+        }
+        
+class InventoryForm(forms.ModelForm):
+    class Meta:
+        model = Inventory
+        fields = ['item_name', 'quantity']
+        widgets = {
+            'item_name': forms.Select(attrs={'class': 'form-control'}),
+            'quantity': forms.NumberInput(attrs={'class': 'form-control'}),
+        }

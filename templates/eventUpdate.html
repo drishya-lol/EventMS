@@ -9,60 +9,7 @@
 </head>
 
 <body class="bg-light">
-    <nav class="navbar navbar-expand-lg navbar-light bg-light">
-        <div class="container-fluid">
-          <a class="navbar-brand" href="/">Event Manager</a>
-          <button
-            class="navbar-toggler"
-            type="button"
-            data-bs-toggle="collapse"
-            data-bs-target="#navbarNav"
-          >
-            <span class="navbar-toggler-icon"></span>
-          </button>
-          <div class="collapse navbar-collapse" id="navbarNav">
-            <ul class="navbar-nav ms-auto">
-              <li class="nav-item">
-                <a class="nav-link" href="/event-list/">Events</a>
-              </li>
-              <li class="nav-item">
-                <a class="nav-link" href="/vendor-list/">Vendors</a>
-              </li>
-              {% if user.is_authenticated %}
-                <li class="nav-item"><a class="nav-link" href="/user-profile/">{{user.first_name}} Profile</a></li>
-                  {% if user|is_EventPlanner or user|is_Admin %}
-                  <li class="nav-item"><a class="nav-link" href="/event-create/">Create Event</a></li>
-                  {% endif %}
-                  {% if user|is_Vendor or user|is_Admin %}
-                  <li class="nav-item"><a class="nav-link" href="/vendor-create">Create Vendor Profile</a></li>                        
-                  {% endif %}
-                  {% if user|is_Admin %}
-                  <li class="nav-item dropdown">
-                      <a class="nav-link dropdown-toggle" href="#" id="registerDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                        Register
-                      </a>
-                      <ul class="dropdown-menu" aria-labelledby="registerDropdown">
-                        <li><a class="dropdown-item" href="/register-admin/">Admin</a></li>
-                        <li><a class="dropdown-item" href="/register-vendor/">Vendor</a></li>
-                        <li><a class="dropdown-item" href="/register-event-planner/">Event Planner</a></li>
-                      </ul>
-                    </li>
-                    {% endif %}
-              <li class="nav-item">
-                <a class="nav-link" href="/logout/">Logout</a>
-              </li>
-              {% else %}
-              <li class="nav-item">
-                <a class="nav-link" href="/login/">Login</a>
-              </li>
-              <li class="nav-item">
-                <a class="nav-link" href="/register/">Register</a>
-              </li>
-              {% endif %}
-            </ul>
-          </div>
-        </div>
-      </nav>
+    {% include 'navbar.html' %}
       <div class="container mt-5">
         <div class="row justify-content-center">
             <div class="col-md-8">
