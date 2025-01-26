@@ -51,7 +51,7 @@
                                                 <p class="mb-0">Location: {{ event.location }}</p>
                                                 <p class="mb-0">Description: {{ event.description }}</p>
                                             </div>
-                                            <a href="{% url 'event-detail' event.id %}" class="btn btn-primary btn-sm">View Details</a>
+                                            <a href="{% url 'event-details' event.id %}" class="btn btn-primary btn-sm">View Details</a>
                                         </div>
                                     </li>
                                     {% endfor %}

@@ -13,3 +13,11 @@ def is_Admin(user):
 @register.filter(name='is_Vendor')
 def is_Vendor(user):
     return user.groups.filter(name='Vendor').exists()
+
+@register.filter(name='is_Client')
+def is_Client(user):
+    return user.groups.filter(name='Client').exists()
+
+@register.filter(name='is_approved')
+def is_approved(review):
+    return review.is_approved

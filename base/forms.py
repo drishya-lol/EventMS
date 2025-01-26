@@ -1,7 +1,8 @@
 from django import forms
-from .models import Event, EventCategory, EventRegistration, Vendor, VendorCategory, VendorPerformance, Ticket, VendorAssignment, TicketType, Logistics, Inventory
+from .models import Event, EventCategory, EventRegistration, Vendor, VendorCategory, VendorPerformance, Ticket, VendorAssignment, TicketType, Logistics, Inventory, EventReview, VendorFeedback
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
+from django.forms.widgets import RadioSelect
 
 class UserRegistrationForm(forms.ModelForm):
     class Meta:
@@ -56,10 +57,9 @@ class VendorForm(forms.ModelForm):
 class VendorAssignmentForm(forms.ModelForm):
     class Meta:
         model = VendorAssignment
-        fields = ['vendor', 'is_available']
+        fields = ['vendor']
         widgets = {
-            'vendor': forms.Select(attrs={'class': 'form-control'}),
-            'is_available': forms.CheckboxInput(attrs={'class': 'form-control'}),
+            'vendor': forms.Select(attrs={'class': 'form-control'})
         }
         
 class UserForm(forms.ModelForm):
@@ -102,4 +102,48 @@ class InventoryForm(forms.ModelForm):
         widgets = {
             'item_name': forms.Select(attrs={'class': 'form-control'}),
             'quantity': forms.NumberInput(attrs={'class': 'form-control'}),
+        }
+
+class EventReviewForm(forms.ModelForm):
+    class Meta:
+        model = EventReview
+        fields = ['rating', 'comments']
+        widgets = {
+            'rating': forms.NumberInput(
+                attrs={
+                    'class': 'form-control',
+                    'min': 1,
+                    'max': 5,
+                    'placeholder': 'Rate between 1 and 5',
+                }
+            ),
+            'comments': forms.Textarea(
+                attrs={
+                    'class': 'form-control',
+                    'placeholder': 'Share your thoughts about the event...',
+                    'rows': 4,
+                }
+            ),
+        }
+
+class VendorFeedbackForm(forms.ModelForm):
+    class Meta:
+        model = VendorFeedback
+        fields = ['rating', 'comments']
+        widgets = {
+            'rating': forms.NumberInput(
+                attrs={
+                    'class': 'form-control',
+                    'min': 1,
+                    'max': 5,
+                    'placeholder': 'Rate between 1 and 5',
+                }
+            ),
+            'comments': forms.Textarea(
+                attrs={
+                    'class': 'form-control',
+                    'placeholder': 'Share your thoughts about the vendor...',
+                    'rows': 4,
+                }
+            ),
         }

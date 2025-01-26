@@ -26,19 +26,24 @@
                         <p><strong>Maximum Attendees:</strong> {{ event.max_attendees }}</p>
                         <p><strong>VIP Cost:</strong> {{ event.vip_cost }}</p>
                         <p><strong>Standard Cost:</strong> {{ event.standard_cost }}</p>
+                        <p><strong>Assigned Vendor:</strong> {{ assigned_vendors }}</p>
                         <div class="d-flex justify-content-between mt-4">
                             {% if user|is_EventPlanner or user|is_Admin %}
                             <a href="{% url 'event-update' event.id %}" class="btn btn-warning">Edit</a>
                             <a href="{% url 'event-delete' event.id %}" class="btn btn-danger">Delete</a>
+                            <a href="{% url 'assign-vendor' event.id %}" class="btn btn-primary">Assign Vendor</a>
                             <a href="{% url 'logistics' event.id %}" class="btn btn-primary">Logistics</a>
                             <a href="{% url 'inventory' event.id %}" class="btn btn-primary">Inventory</a>
                             {% else %}
                             {% if is_user_registered %}
                             <a href="{% url 'event-unregister' event.id %}" class="btn btn-danger">Unregister</a>
+                            <a href="{% url 'view-your-reviews' event.id %}" class="btn btn-primary">View Your Review</a>
+                            <a href="{% url 'give-event-reviews' event_id=event.id %}" class="btn btn-primary">Give A Review</a>
                             {% else %}
                             <a href="{% url 'event-register' event.id %}" class="btn btn-danger">Register</a>
                             {% endif %}
                             {% endif %}
+                            <a href="{% url 'event-reviews' event.id %}" class="btn btn-primary">Reviews</a>
                         </div>
                     </div>
                 </div>

@@ -25,10 +25,27 @@
                         <p><strong>Pricing:</strong> {{ vendor.pricing }}</p>
                         <p><strong>Contact Info:</strong> {{ vendor.contact_info }}</p>
                         <p><strong>Websites:</strong> {{ vendor.website }}</p>
-                        <p><strong>Categories:</strong> {{ vendor.categories }}</p>
+                        
+                        <p><strong>Categories:</strong> 
+                        {% for category in vendor.categories.all %}
+                           <span> {{ category.name }}{% if not forloop.last %}, {% endif %} </span>
+                        {% endfor %}
+                        </p>
+                        <p><strong>Aggregated Rating:</strong> {{ aggregated_rating|floatformat:1 }} / 5</p>
+                        {% if user|is_Admin or user|is_Vendor%}
+                        <p><strong>Availability:</strong> {{ vendor.is_available }}</p>
+                        {% endif %}
+                        {% if user|is_Admin or user|is_Vendor%}
                         <div class="d-flex justify-content-between mt-4">
                             <a href="{% url 'vendor-update' vendor.id %}" class="btn btn-warning">Edit</a>
-                            {% comment %} <a href="{% url 'vendor-delete' vendor.id %}" class="btn btn-danger">Delete</a> {% endcomment %}
+                            <a href="{% url 'vendor-delete' vendor.id %}" class="btn btn-danger">Delete</a>
+                            <a href="{% url 'view-all-feedbacks' vendor.id %}" class="btn btn-primary">View Feedbacks</a>
+                            <a href="{% url 'update-vendor-availability' vendor.id %}" class="btn btn-primary">Toggle Availability</a>
+                            <a href="{% url 'vendor-assigned-events' vendor.id %}" class="btn btn-primary">Assigned Event</a>
+                        {% endif %}
+                        {% if user|is_Client %}
+                            <a href="{% url 'vendor-feedback' vendor.id %}" class="btn btn-primary">Give Vendor A Feedback</a>
+                        {% endif %}
                         </div>
                     </div>
                 </div>

@@ -18,6 +18,7 @@
                         <th>Event Name</th>
                         <th>Client</th>
                         <th>Registration Date</th>
+                        <th>Attended</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -26,6 +27,7 @@
                         <td>{{ registration.event.name }}</td>
                         <td>{{ registration.client }}</td>
                         <td>{{ registration.registration_date }}</td>
+                        <td>{{ registration.attended }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>

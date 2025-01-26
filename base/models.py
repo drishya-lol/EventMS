@@ -58,7 +58,7 @@ class Vendor(models.Model):
     website = models.URLField(null=True)
     categories = models.ManyToManyField('VendorCategory')
     is_approved = models.BooleanField(default=False)
-    
+    is_available = models.BooleanField(default=True)
     def __str__(self):
         return self.name
     
@@ -72,6 +72,9 @@ class VendorAssignment(models.Model):
     vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE, related_name='assignments')
     event = models.ForeignKey(Event, on_delete=models.CASCADE)
     is_available = models.BooleanField(default=True)
+    
+    def __str__(self):
+        return f"{self.vendor.name}"
     
 class VendorPerformance(models.Model):
     vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE)

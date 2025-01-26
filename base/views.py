@@ -1,11 +1,11 @@
-from django.shortcuts import render, redirect, get_object_or_404
-from .forms import UserRegistrationForm, LoginForm, EventCreationForm, VendorForm, VendorAssignmentForm, UserForm, EventRegistrationForm, LogisticsForm, InventoryForm
+from django.shortcuts import render, redirect, get_object_or_404, HttpResponse
+from .forms import UserRegistrationForm, LoginForm, EventCreationForm, VendorForm, VendorAssignmentForm, UserForm, EventRegistrationForm, LogisticsForm, InventoryForm, EventReviewForm, VendorFeedbackForm
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth import authenticate, login, logout
 from django.urls import reverse_lazy
 from django.contrib.auth.views import PasswordResetView
 from django.contrib.messages.views import SuccessMessageMixin
-from .models import Event, EventCategory, EventRegistration, Vendor, VendorCategory, VendorPerformance, Ticket, VendorAssignment, TicketType, Invoice, Logistics, Inventory
+from .models import Event, EventCategory, EventRegistration, Vendor, VendorCategory, VendorPerformance, Ticket, VendorAssignment, TicketType, Invoice, Logistics, Inventory, EventReview, VendorFeedback
 from django.views.generic import DetailView, ListView
 from django.contrib.auth.models import Group, User
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -13,6 +13,8 @@ from django.contrib.auth.models import Group
 from django.contrib import messages
 from django.utils import timezone
 from django.db import transaction
+from django.core.mail import send_mail
+from reportlab.pdfgen import canvas
 
 # Create your views here.
 
@@ -169,10 +171,13 @@ class EventDetailView(DetailView):
         context = super().get_context_data(**kwargs)
         event = self.get_object()
         context['is_user_registered'] = EventRegistration.objects.filter(
-            event=event, 
+            event=event,
             client=self.request.user
         ).exists()
+        vendor_assignment = VendorAssignment.objects.filter(event=event).first()
+        context['assigned_vendors'] = vendor_assignment.vendor.name if vendor_assignment else ''
         return context
+
 
 class EventListView(ListView):
     model = Event
@@ -181,7 +186,7 @@ class EventListView(ListView):
     filterset_fields = ['category', 'date', 'location', 'price']
     search_fields = ['name', 'description']
     def get_queryset(self):
-        if is_Admin(self.request.user) or is_Client(self.request.user):
+        if is_Admin(self.request.user) or is_Client(self.request.user) or is_Vendor(self.request.user):
             return Event.objects.all()
         else:
             return Event.objects.filter(created_by=self.request.user)
@@ -215,6 +220,8 @@ def create_vendor_profile(request):
         form = VendorForm(request.POST)
         if form.is_valid():
             vendor = form.save(commit=False)
+            selected_categories = form.cleaned_data.get('categories')
+            vendor.categories.set(selected_categories)
             vendor.user = request.user
             vendor.save()
             return redirect('vendor-details', pk=vendor.pk)
@@ -229,16 +236,32 @@ def update_vendor_profile(request, pk):
     if request.method == 'POST':
         form = VendorForm(request.POST, instance=vendor)
         if form.is_valid():
-            form.save()
-            return redirect('vendor-list')
+            vendor = form.save(commit=False)
+            selected_categories = form.cleaned_data.get('categories')
+            vendor.categories.set(selected_categories)
+            vendor.user = request.user
+            vendor.save()
+            return redirect('vendor-details', pk=vendor.pk)
     else:
         form = VendorForm(instance=vendor)
     return render(request, 'vendorUpdate.html', {'form': form})
 
+def delete_vendor(request, pk):
+    vendor = Vendor.objects.get(pk=pk)
+    vendor.delete()
+    return redirect('vendor-list')
+
 class VendorDetailView(DetailView):
     model = Vendor
     template_name = 'vendorDetails.html'
-    context_object_name = 'vendor'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        vendor = self.get_object()
+        feedbacks = VendorFeedback.objects.filter(vendor=vendor)
+        total = sum(feedback.rating for feedback in feedbacks)
+        context['aggregated_rating'] = total / feedbacks.count() if feedbacks.count() > 0 else 0
+        return context
 
 class VendorListView(ListView):
     model = Vendor
@@ -249,38 +272,63 @@ class VendorListView(ListView):
 @user_passes_test(lambda u: is_Admin(u) or is_EventPlanner(u))
 def assign_vendor(request, event_id):
     event = get_object_or_404(Event, id=event_id)
+    available_vendors = Vendor.objects.filter(is_available=True)
+
     if request.method == 'POST':
         form = VendorAssignmentForm(request.POST)
         if form.is_valid():
             assignment = form.save(commit=False)
             assignment.event = event
+            assignment.vendor = form.cleaned_data['vendor']
+            
+            vendor = assignment.vendor
+            vendor.is_available = False
+            vendor.save()
+            
             assignment.save()
-            return redirect('event-details', pk=event.id)
+            return redirect('assign-vendors', pk=event.id)
     else:
         form = VendorAssignmentForm()
-    
-    data = {'form': form, 'event': event}
-    return render(request, 'vendorAssignment.html', context=data)
+        # Limit vendor choices to only available vendors
+        form.fields['vendor'].queryset = available_vendors
 
+    data = {
+        'form': form, 
+        'event': event, 
+        'available_vendors': available_vendors
+    }
+    return render(request, 'vendorAssignment.html', context=data)
+    
 def vendor_assigned_events(request,vendor_id):
-    vendor = get_object_or_404(VendorAssignment, id=vendor_id)
-    assignments = vendor.assignments.select_related('event').all()
-    return render(request, 'vendorAssignedEvents.html', {'assignments': assignments})
+    if VendorAssignment.objects.filter(vendor_id=vendor_id).exists():
+        vendor = get_object_or_404(Vendor, id=vendor_id)
+        assignments = VendorAssignment.objects.filter(vendor=vendor).select_related('event')
+        return render(request, 'vendorAssignedEvents.html', {'assignments': assignments})
+    else:
+        return render(request, 'vendorAssignedEvents.html', {'assignments': []})
+
+def get_available_vendors(request):
+    available_assignments = VendorAssignment.objects.filter(vendor__is_available=True)
+    available_assignments = VendorAssignment.objects.filter(
+        vendor__is_available=True,
+        is_confirmed=True  # If you want only confirmed assignments
+    )
+    available_vendors = Vendor.objects.filter(is_available=True)
+
 
 @login_required(login_url='login')
 @user_passes_test(lambda u: is_Admin(u) or is_Vendor(u))
-def update_vendor_availability(request, assignment_id):
-    assignment = get_object_or_404(VendorAssignment, id=assignment_id)
-    if request.method == 'POST':
-        assignment.is_available = not assignment.is_available
-        assignment.save()
-        return redirect('vendor-assigned-events')
-    return render(request, 'updateVendorAvailability.html', {'assignment': assignment})
+def update_vendor_availability(request, vendor_id):
+    vendor = get_object_or_404(Vendor, id=vendor_id)
+    vendor.is_available = not vendor.is_available
+    vendor.save()
+    return redirect('vendor-details', pk=vendor_id)
 
 @login_required(login_url='login')
 def userProfile(request):
     user, created = User.objects.get_or_create(id=request.user.id)
-    data = {'user': user}
+    registered_events = EventRegistration.objects.filter(client=user)
+    data = {'user': user, 'registered_events': registered_events}
     return render(request, 'userProfile.html', context=data)
 
 @login_required(login_url='login')
@@ -299,12 +347,12 @@ def editProfile(request):
 def eventRegister(request, event_id):
     event = get_object_or_404(Event, id=event_id)
     
-    # Check capacity first before processing anything
+    # Validate event capacity
     if event.max_attendees and event.registrations >= event.max_attendees:
         messages.error(request, 'Sorry, this event has reached maximum capacity.')
         return redirect('event-details', pk=event.id)
     
-    # Check if user already registered
+    # Check existing registration
     if EventRegistration.objects.filter(event=event, client=request.user).exists():
         messages.info(request, 'You are already registered for this event.')
         return redirect('event-details', pk=event.id)
@@ -313,21 +361,36 @@ def eventRegister(request, event_id):
         form = EventRegistrationForm(request.POST)
         if form.is_valid():
             with transaction.atomic():
+                # Create registration
                 registration = form.save(commit=False)
                 registration.event = event
                 registration.client = request.user
                 registration.registration_date = timezone.now()
                 registration.save()
                 
-                # Update event registration count
+                # Update event count
                 event.registrations += 1
                 event.save()
-            
-            messages.success(request, 'Successfully registered for the event!')
-            return redirect('event-details', pk=event.id)
-    else:
-        form = EventRegistrationForm(initial={'client': request.user})
+                
+                # Get selected ticket type and create ticket
+                ticket_type = form.cleaned_data['ticket_type']
+                ticket_price = {
+                    'Attendee': 0,
+                    'General Admission': 500, 
+                    'VIP': 2000
+                }.get(ticket_type.name, 0)
+                
+                Ticket.objects.create(
+                    ticket_type=ticket_type,
+                    event=event,
+                    price=ticket_price,
+                    is_valid=True
+                )
+                return redirect('ticket-purchase', event_id=event.id)
         
+        return render(request, 'eventRegistration.html', {'form': form, 'event': event})
+        
+    form = EventRegistrationForm(initial={'client': request.user})
     context = {
         'form': form,
         'event': event,
@@ -335,6 +398,47 @@ def eventRegister(request, event_id):
     }
     return render(request, 'eventRegistration.html', context)
 
+@login_required
+def ticket_purchase(request, event_id):
+    event = get_object_or_404(Event, id=event_id)
+    # Get the user's registration for this event
+    registration = get_object_or_404(EventRegistration, event=event, client=request.user)
+    
+    if request.method == 'POST':
+        # Use the ticket type from registration
+        ticket_type = registration.ticket_type
+        quantity = 1  # Since it's linked to registration, quantity is 1
+        
+        # Get price based on ticket type
+        price = {
+            'Attendee': 0,
+            'General Admission': 500, 
+            'VIP': 2000
+        }.get(ticket_type.name, 0)
+        
+        # Create invoice
+        invoice = Invoice.objects.create(
+            client=request.user,
+            event=event,
+            total_amount=price * quantity,
+            invoice_date=timezone.now(),
+            payment_status='Pending'
+        )
+        
+        # Create ticket using registration's ticket type
+        ticket = Ticket.objects.create(
+            ticket_type=ticket_type,
+            event=event,
+            price=price,
+            is_valid=True
+        )
+        return redirect('download-ticket', ticket_id=ticket.id)
+    
+    return render(request, 'ticketPurchase.html', {
+        'event': event,
+        'selected_ticket_type': registration.ticket_type
+    })
+    
 @login_required
 def eventUnregister(request, event_id):
     event = get_object_or_404(Event, id=event_id)
@@ -353,7 +457,6 @@ def eventUnregister(request, event_id):
         
     return redirect('event-details', pk=event.id)
 
-
 @login_required(login_url='login')
 def registeredStatus(request, event_id):
     event = get_object_or_404(Event.objects.select_related('category'), id=event_id)
@@ -368,7 +471,6 @@ def registeredStatus(request, event_id):
     }
     return render(request, 'eventDetails.html', context)
 
-
 @login_required(login_url='login')
 @user_passes_test(lambda u: is_Admin(u) or is_EventPlanner(u))
 def event_registration_list(request):
@@ -380,45 +482,6 @@ def event_registration_list(request):
         registrations = EventRegistration.objects.filter(event__created_by=request.user)
     
     return render(request, 'eventRegistrationList.html', {'registrations': registrations})
-
-
-@login_required
-def ticket_purchase(request, event_id):
-    event = get_object_or_404(Event, id=event_id)
-    ticket_types = TicketType.objects.all()
-    if request.method == 'POST':
-        ticket_type_id = request.POST.get('ticket_type')
-        ticket_type = get_object_or_404(TicketType, id=ticket_type_id)
-        quantity = int(request.POST.get('quantity', 1))
-        
-        total_price = ticket_type.price * quantity
-        
-        invoice = Invoice.objects.create(
-            client = request.user,
-            event = event,
-            total_amount = total_price,
-            invoice_date = timezone.now(),
-            payment_status = 'Pending'
-        )
-        
-        for _ in range(quantity):
-            Ticket.objects.create(
-                invoice=invoice,
-                ticket_type=ticket_type,
-                event=event,
-                price=ticket_type.price,
-                is_valid=True,
-            )
-        
-        messages.success(request, f'Successfully purchased {quantity} ticket(s) for {ticket_type.name}.')
-        return redirect('invoice-detail', invoice_id=invoice.id)
-    
-    return render(request, 'ticketPurchase.html', {'event': event, 'ticket_types': ticket_types})
-
-class InvoiceDetailView(DetailView):
-    model = Invoice
-    template_name = 'invoiceDetail.html'
-    context_object_name = 'invoice'
 
 @login_required(login_url='login')
 @user_passes_test(lambda u: is_Admin(u) or is_EventPlanner(u))    
@@ -467,3 +530,89 @@ def inventory_delete(request, inventory_id):
     event_id = inventory.event.id
     inventory.delete()
     return redirect('inventory', event_id=event_id)
+
+def give_event_reviews(request, event_id):
+    event = get_object_or_404(Event, id=event_id)
+    reviews = EventReview.objects.filter(event=event)
+    if request.method == 'POST':
+        form = EventReviewForm(request.POST)
+        if form.is_valid():
+            review = form.save(commit=False)
+            review.user = request.user
+            review.event = event
+            review.save()
+            return redirect('event-details', pk=event_id)
+    else:
+        form = EventReviewForm()
+    return render(request, 'eventReview.html', {'event': event, 'reviews': reviews, 'form': form})
+
+@login_required(login_url='login')
+@user_passes_test(lambda u: is_Admin(u))
+def approve_reviews(request, review_id):
+    review = get_object_or_404(EventReview, id=review_id)
+    review.is_approved = True
+    review.save()
+    return redirect('event-details', pk=review.event.id)
+    # return redirect('event-reviews', event_id=review.event.id)
+
+def event_reviews(request, event_id):
+    event = get_object_or_404(Event, id=event_id)
+    reviews = EventReview.objects.filter(event=event)
+    return render(request, 'eventReviewList.html', {'event': event, 'reviews': reviews})
+
+@login_required(login_url='login')
+@user_passes_test(lambda u: is_Admin(u))
+def review_delete(request, review_id):
+    review = get_object_or_404(EventReview, id=review_id)
+    event_id = review.event.id
+    review.delete()
+    return redirect('event-reviews', event_id=event_id)
+
+def view_your_reviews(request, event_id):
+    event = get_object_or_404(Event, id=event_id)
+    reviews = EventReview.objects.filter(event=event, user=request.user)
+    return render(request, 'yourReviews.html', {'event': event, 'reviews': reviews})
+
+def feedback_for_vendor(request, vendor_id):
+    vendor = get_object_or_404(Vendor, id=vendor_id)
+    feedbacks = VendorFeedback.objects.filter(vendor=vendor)
+    if request.method == 'POST':
+        form = VendorFeedbackForm(request.POST)
+        if form.is_valid():
+            feedback = form.save(commit=False)
+            feedback.user = request.user
+            feedback.vendor = vendor
+            feedback.save()
+            return redirect('vendor-details', pk=vendor_id)
+    else:
+        form = VendorFeedbackForm()
+    return render(request, 'feedbackForVendor.html', {'vendor': vendor, 'feedbacks': feedbacks, 'form': form})
+
+def view_all_feedbacks(request, vendor_id):
+    vendor = get_object_or_404(Vendor, id=vendor_id)
+    feedbacks = VendorFeedback.objects.filter(vendor=vendor)
+    return render(request, 'allFeedbacks.html', {'vendor': vendor, 'feedbacks': feedbacks})
+
+@login_required(login_url='login')
+def download_ticket(request, ticket_id):
+    ticket = get_object_or_404(Ticket, id=ticket_id)
+    
+    # Generate ticket PDF using the ticket details
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="ticket_{ticket.unique_code}.pdf"'
+    
+    # Create PDF
+    p = canvas.Canvas(response)
+    p.drawString(100, 800, f"Event: {ticket.event.name}")
+    p.drawString(100, 780, f"Ticket Type: {ticket.ticket_type.name}")
+    p.drawString(100, 760, f"Ticket Code: {ticket.unique_code}")
+    p.drawString(100, 740, f"Date: {ticket.event.date}")
+    p.drawString(100, 720, f"Venue: {ticket.event.location}")
+    p.save()
+    
+    return response
+
+class InvoiceDetailView(DetailView):
+    model = Invoice
+    template_name = 'invoice_detail.html'
+    context_object_name = 'invoice'
