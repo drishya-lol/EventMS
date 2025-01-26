@@ -39,9 +39,12 @@
                                 <button type="submit" class="btn btn-primary btn-lg">Register</button>
                             </div>
                         </form>
+                        {% if user.is_authenticated %}
+                        {%else%}
                         <div class="mt-4 text-center">
                             <a href="/login/" class="text-primary">Already have an account? Login</a>
                         </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>

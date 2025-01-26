@@ -16,7 +16,8 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
-from base.views import userRegistration, home, userLogin, userlogout, eventCreation, EventDetailView, EventListView, eventUpdate, eventDelete, search_events, create_vendor_profile, update_vendor_profile, VendorDetailView, VendorListView, assign_vendor, vendor_assigned_events, update_vendor_availability, userProfile, editProfile, register_eventPlanner, register_vendor, register_admin, eventRegister, event_registration_list, ticket_purchase, InvoiceDetailView
+from base.views import userRegistration, home, userLogin, userlogout, eventCreation, EventDetailView, EventListView, eventUpdate, eventDelete, search_events, create_vendor_profile, update_vendor_profile, VendorDetailView, VendorListView, assign_vendor, vendor_assigned_events, update_vendor_availability, userProfile, editProfile, register_eventPlanner, register_vendor, register_admin, eventRegister, eventUnregister, event_registration_list, ticket_purchase, InvoiceDetailView, registeredStatus
+from base import views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -42,8 +43,11 @@ urlpatterns = [
     path('register-event-planner/', register_eventPlanner, name='register-event-planner'),
     path('register-vendor/', register_vendor, name='register-vendor'),
     path('register-admin/', register_admin, name='register-admin'),
-    path('event-register/<int:event_id>', eventRegister, name='event-register'),
+    path('event-details/<int:event_id>/register/', views.eventRegister, name='event-register'),
+    path('event-details/<int:event_id>/unregister/', eventUnregister, name='event-unregister'),
     path('event-registration-list/', event_registration_list, name='event-registration-list'),
     path('ticket-purchase/<int:event_id>/', ticket_purchase, name='ticket-purchase'),
     path('invoice/<int:invoice_id>/', InvoiceDetailView.as_view(), name='invoice-detail'),
+    path('event-details/<int:event_id>/status/', registeredStatus, name='registered-status'),
+
 ]

@@ -1,3 +1,4 @@
+{% load events %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -45,33 +46,72 @@
 <body>
     <nav class="navbar navbar-expand-lg navbar-light bg-light">
         <div class="container-fluid">
-            <a class="navbar-brand" href="/">Event Manager</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item"><a class="nav-link" href="/event-list/">Events</a></li>
-                    <li class="nav-item"><a class="nav-link" href="/vendor-list/">Vendors</a></li>
-                    {% if user.is_authenticated %}
-                    <li class="nav-item"><a class="nav-link" href="/logout/">Logout</a></li>
-                    {% else %}
-                    <li class="nav-item"><a class="nav-link" href="/login/">Login</a></li>
-                    <li class="nav-item"><a class="nav-link" href="/register/">Register</a></li>
+          <a class="navbar-brand" href="/">Event Manager</a>
+          <button
+            class="navbar-toggler"
+            type="button"
+            data-bs-toggle="collapse"
+            data-bs-target="#navbarNav"
+          >
+            <span class="navbar-toggler-icon"></span>
+          </button>
+          <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-auto">
+              <li class="nav-item">
+                <a class="nav-link" href="/event-list/">Events</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="/vendor-list/">Vendors</a>
+              </li>
+              {% if user.is_authenticated %}
+                <li class="nav-item"><a class="nav-link" href="/user-profile/">{{user.first_name}} Profile</a></li>
+                  {% if user|is_EventPlanner or user|is_Admin %}
+                  <li class="nav-item"><a class="nav-link" href="/event-create/">Create Event</a></li>
+                  {% endif %}
+                  {% if user|is_Vendor or user|is_Admin %}
+                  <li class="nav-item"><a class="nav-link" href="/vendor-create">Create Vendor Profile</a></li>                        
+                  {% endif %}
+                  {% if user|is_Admin %}
+                  <li class="nav-item dropdown">
+                      <a class="nav-link dropdown-toggle" href="#" id="registerDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        Register
+                      </a>
+                      <ul class="dropdown-menu" aria-labelledby="registerDropdown">
+                        <li><a class="dropdown-item" href="/register-admin/">Admin</a></li>
+                        <li><a class="dropdown-item" href="/register-vendor/">Vendor</a></li>
+                        <li><a class="dropdown-item" href="/register-event-planner/">Event Planner</a></li>
+                      </ul>
+                    </li>
                     {% endif %}
-                </ul>
-            </div>
+              <li class="nav-item">
+                <a class="nav-link" href="/logout/">Logout</a>
+              </li>
+              {% else %}
+              <li class="nav-item">
+                <a class="nav-link" href="/login/">Login</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="/register/">Register</a>
+              </li>
+              {% endif %}
+            </ul>
+          </div>
         </div>
-    </nav>
+      </nav>
     <div class="container">
-        <h1 class="page-header">Event Management System</h1>
-        <div class="text-center">
-            {%if user.is_authenticated%}
-            <a href="{% url 'event-create' %}" class="btn btn-primary create-btn">
-                <i class="fas fa-plus"></i> Create New Event
+        <h1 class="page-header">Events</h1>
+        <div class="d-flex justify-content-center gap-3 mt-4">
+            {% if user|is_Admin or user|is_EventPlanner %}
+            <a href="{% url 'event-create' %}" class="btn btn-primary create-btn d-flex align-items-center" role="button" aria-disabled="true">
+                <i class="fas fa-plus me-2"></i> Create New Event
             </a>
+            <a href="{% url 'event-registration-list' %}" class="btn btn-secondary create-btn d-flex align-items-center" role="button" aria-disabled="true">
+                <i class="fas fa-plus me-2"></i> Event Registration List
+            </a>
+
             {% endif %}
         </div>
+        
         <div class="list-group">
             {% for event in events %}
             <a href="{% url 'event-details' event.id %}" class="list-group-item list-group-item-action">

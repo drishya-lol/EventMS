@@ -12,6 +12,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import Group
 from django.contrib import messages
 from django.utils import timezone
+from django.db import transaction
 
 # Create your views here.
 
@@ -21,13 +22,16 @@ def home(request):
 def userRegistration(request):
     form = UserRegistrationForm()
     if request.method == 'POST':
+        clientGroup = Group.objects.get(name='Client')
         password = request.POST.get('password')
         newpassword = make_password(password)
         data = request.POST.copy()
         data['password'] = newpassword
         form = UserRegistrationForm(data)
         if form.is_valid():
-            form.save()
+            user = form.save()
+            user.groups.add(clientGroup)
+            user.save()
             return redirect('login')
         else:
             return render(request, 'register.html', context = {'form': form})
@@ -50,7 +54,7 @@ def register_eventPlanner(request):
                 user = form.save()
                 user.groups.add(eventManagerGroup)
                 user.save()
-                return redirect('login')
+                return redirect('home')
             else:
                 return render(request, 'register.html', context = {'form': form})
         data = {'form': form}
@@ -74,7 +78,7 @@ def register_vendor(request):
                 user = form.save()
                 user.groups.add(vendorGroup)
                 user.save()
-                return redirect('login')
+                return redirect('home')
             else:
                 return render(request, 'register.html', context = {'form': form})
         data = {'form': form}
@@ -100,7 +104,7 @@ def register_admin(request):
                 user.is_superuser = True
                 user.is_staff = True
                 user.save()
-                return redirect('login')
+                return redirect('home')
             else:
                 return render(request, 'register.html', context = {'form': form})
         data = {'form': form}
@@ -160,12 +164,26 @@ def eventCreation(request):
 class EventDetailView(DetailView):
     model = Event
     template_name = 'eventDetails.html'
-    context_object_name = 'event'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        event = self.get_object()
+        context['is_user_registered'] = EventRegistration.objects.filter(
+            event=event, 
+            client=self.request.user
+        ).exists()
+        return context
 
 class EventListView(ListView):
     model = Event
     template_name = 'eventList.html'
     context_object_name = 'events'
+    
+    def get_queryset(self):
+        if is_Admin(self.request.user) or is_Client(self.request.user):
+            return Event.objects.all()
+        else:
+            return Event.objects.filter(created_by=self.request.user)
 
 @login_required(login_url='login')
 @user_passes_test(lambda u: is_Admin(u) or is_EventPlanner(u))
@@ -338,24 +356,30 @@ def editProfile(request):
 def eventRegister(request, event_id):
     event = get_object_or_404(Event, id=event_id)
     
+    # Check capacity first before processing anything
+    if event.max_attendees and event.registrations >= event.max_attendees:
+        messages.error(request, 'Sorry, this event has reached maximum capacity.')
+        return redirect('event-details', pk=event.id)
+    
     # Check if user already registered
     if EventRegistration.objects.filter(event=event, client=request.user).exists():
+        messages.info(request, 'You are already registered for this event.')
         return redirect('event-details', pk=event.id)
         
     if request.method == 'POST':
         form = EventRegistrationForm(request.POST)
         if form.is_valid():
-            registration = form.save(commit=False)
-            registration.event = event
-            registration.client = request.user
-            registration.registration_date = timezone.now()
-
-            # Check event capacity
-            if event.max_attendees and event.registrations >= event.max_attendees:
-                messages.error(request, 'Sorry, this event has reached maximum capacity.')
-                return redirect('event-details', pk=event.id)
+            with transaction.atomic():
+                registration = form.save(commit=False)
+                registration.event = event
+                registration.client = request.user
+                registration.registration_date = timezone.now()
+                registration.save()
                 
-            registration.save()
+                # Update event registration count
+                event.registrations += 1
+                event.save()
+            
             messages.success(request, 'Successfully registered for the event!')
             return redirect('event-details', pk=event.id)
     else:
@@ -368,24 +392,52 @@ def eventRegister(request, event_id):
     }
     return render(request, 'eventRegistration.html', context)
 
+@login_required
+def eventUnregister(request, event_id):
+    event = get_object_or_404(Event, id=event_id)
+    try:
+        with transaction.atomic():
+            registration = get_object_or_404(EventRegistration, event=event, client=request.user)
+            registration.delete()
+            
+            # Update event registration count
+            event.registrations = max(0, event.registrations - 1)
+            event.save()
+            
+            messages.success(request, 'Successfully unregistered from the event.')
+    except Exception as e:
+        messages.error(request, 'Error unregistering from event.')
+        
+    return redirect('event-details', pk=event.id)
+
+
 @login_required(login_url='login')
 def registeredStatus(request, event_id):
-    event = get_object_or_404(Event, id=event_id)
-    registrations = event.registrations.select_related('user').order_by('-registration_date')
+    event = get_object_or_404(Event.objects.select_related('category'), id=event_id)
+    registrations = EventRegistration.objects.filter(event=event).select_related('client').order_by('-registration_date')
     
     context = {
         'event': event,
         'registrations': registrations,
         'total_registrations': registrations.count(),
-        'is_user_registered': registrations.filter(user=request.user).exists(),
+        'is_user_registered': EventRegistration.objects.filter(event=event, client=request.user).exists(),
+        'remaining_spots': event.max_attendees - registrations.count() if event.max_attendees else None
     }
     return render(request, 'eventDetails.html', context)
+
 
 @login_required(login_url='login')
 @user_passes_test(lambda u: is_Admin(u) or is_EventPlanner(u))
 def event_registration_list(request):
-    registrations = EventRegistration.objects.all()
+    if is_Admin(request.user):
+        # Admin sees all registrations
+        registrations = EventRegistration.objects.all()
+    else:
+        # Event planner sees registrations only for their events
+        registrations = EventRegistration.objects.filter(event__created_by=request.user)
+    
     return render(request, 'eventRegistrationList.html', {'registrations': registrations})
+
 
 @login_required
 def ticket_purchase(request, event_id):

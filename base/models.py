@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils import timezone
 import uuid
 
 # Create your models here.
@@ -15,6 +16,11 @@ class Event(models.Model):
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     vip_cost = models.IntegerField(default=2000, null=True)
     standard_cost = models.IntegerField(default=500, null=True)
+    
+    def save(self, *args, **kwargs):
+        if not self.created_by:
+            self.created_by = self.created_by
+        super().save(*args, **kwargs)
     
     def __str__(self):
         return self.name
@@ -32,10 +38,18 @@ class EventRegistration(models.Model):
     attendee_name = models.CharField(max_length=100)
     attendee_email = models.EmailField()
     ticket_type = models.ForeignKey('TicketType', on_delete=models.CASCADE)
+    registration_date = models.DateTimeField(default=timezone.now)
     
+    def save(self, *args, **kwargs):
+        if not self.attendee_name:
+            self.attendee_name = self.client.get_full_name() or self.client.username
+        if not self.attendee_email:
+            self.attendee_email = self.client.email
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.attendee_name} - {self.event.name}"
-    
+
 class Vendor(models.Model):
     name = models.CharField(max_length=100)
     services_offered = models.TextField()
