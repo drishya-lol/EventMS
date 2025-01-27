@@ -60,4 +60,8 @@ urlpatterns = [
     path('feedback-for-vendor/<int:vendor_id>', views.feedback_for_vendor, name='vendor-feedback'),
     path('view-all-feedbacks/<int:vendor_id>', views.view_all_feedbacks, name='view-all-feedbacks'),
     path('ticket/<int:ticket_id>/download/', views.download_ticket, name='download-ticket'),
+    path('cancel-ticket/<int:ticket_id>/', views.cancelTicket, name='cancel-ticket'),
+    path('password-reset/', views.resetPassword, name='password-reset'),
+    path('password-reset-confirm/<str:token>/', views.resetPasswordConfirm, name='password-reset-confirm'),
+    path('change-password/', views.changePassword, name='change-password'),
 ]

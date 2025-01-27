@@ -30,6 +30,10 @@
                         <h3 class="mb-0">Login</h3>
                     </div>
                     <div class="card-body">
+                        {% if error %}
+                            <div class="alert alert-danger">{{ error }}</div>
+                        {% endif %}
+                        
                         <form action="/login/" method="POST" class="needs-validation">
                             {% csrf_token %}
                             <div class="form-group">
@@ -39,9 +43,10 @@
                                 <button type="submit" class="btn btn-primary btn-lg">Login</button>
                             </div>
                         </form>
+                    </div>
                         <div class="mt-4 text-center">
                             <a href="/register/" class="text-primary">Don't have an account? Register</a><br>
-                            {% comment %} <a href="{% url 'password_reset' %}" class="text-secondary">Forgot Password?</a> {% endcomment %}
+                            <a href="{% url 'password-reset' %}" class="text-secondary">Forgot Password?</a>
                         </div>
                     </div>
                 </div>

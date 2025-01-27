@@ -147,3 +147,51 @@ class VendorFeedbackForm(forms.ModelForm):
                 }
             ),
         }
+        
+class ChangePasswordForm(forms.Form):
+    password = forms.CharField(
+        label='Current Password',
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Enter your current password'
+        })
+    )
+    
+    new_password = forms.CharField(
+        label='New Password',
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Enter new password'
+        })
+    )
+    
+    confirm_password = forms.CharField(
+        label='Confirm New Password',
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Confirm new password'
+        })
+    )
+
+    def clean_new_password(self):
+        new_password = self.cleaned_data.get('new_password')
+        return new_password
+
+    def clean(self):
+        cleaned_data = super().clean()
+        new_password = cleaned_data.get('new_password')
+        confirm_password = cleaned_data.get('confirm_password')
+
+        if new_password and confirm_password:
+            if new_password != confirm_password:
+                raise forms.ValidationError({
+                    'confirm_password': 'The new passwords do not match.'
+                })
+            
+            # Check if new password is different from current password
+            if 'password' in cleaned_data and new_password == cleaned_data['password']:
+                raise forms.ValidationError({
+                    'new_password': 'New password must be different from current password.'
+                })
+
+        return cleaned_data

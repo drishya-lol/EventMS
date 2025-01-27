@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404, HttpResponse
-from .forms import UserRegistrationForm, LoginForm, EventCreationForm, VendorForm, VendorAssignmentForm, UserForm, EventRegistrationForm, LogisticsForm, InventoryForm, EventReviewForm, VendorFeedbackForm
+from .forms import UserRegistrationForm, LoginForm, EventCreationForm, VendorForm, VendorAssignmentForm, UserForm, EventRegistrationForm, LogisticsForm, InventoryForm, EventReviewForm, VendorFeedbackForm, ChangePasswordForm
 from django.contrib.auth.hashers import make_password
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.urls import reverse_lazy
 from django.contrib.auth.views import PasswordResetView
 from django.contrib.messages.views import SuccessMessageMixin
@@ -15,6 +15,9 @@ from django.utils import timezone
 from django.db import transaction
 from django.core.mail import send_mail
 from reportlab.pdfgen import canvas
+from django.conf import settings
+from django.utils.crypto import get_random_string
+import datetime, time
 
 # Create your views here.
 
@@ -142,7 +145,101 @@ def userLogin(request):
     return render(request, 'login.html', context = data)
 
 def resetPassword(request):
-    pass
+    if request.method == 'POST':
+        email = request.POST.get('email')
+        try:
+            user = User.objects.get(email=email)
+            # Generate token
+            token = get_random_string(length=32)
+            # Store token and expiry in session
+            request.session['reset_token'] = token
+            request.session['reset_email'] = email
+            request.session['reset_expiry'] = (
+                datetime.datetime.now() + datetime.timedelta(hours=24)
+            ).isoformat()
+            
+            # Send reset email
+            reset_link = f"{settings.SITE_URL}/password-reset-confirm/{token}/"
+            email_subject = 'Password Reset Request'
+            email_message = f'''
+            Hello {user.username},
+            
+            You have requested to reset your password. Please click the following link to set a new password:
+            
+            {reset_link}
+            
+            This link will expire in 24 hours.
+            
+            If you did not request this password reset, please ignore this email.
+            
+            Best regards,
+            Your Application Team
+            '''
+            
+            send_mail(
+                email_subject,
+                email_message,
+                settings.DEFAULT_FROM_EMAIL,
+                [email],
+                fail_silently=False,
+            )
+            messages.success(
+                request,
+                'Password reset instructions have been sent to your email.'
+            )
+            return render(request, 'password_reset.html')
+        except User.DoesNotExist:
+            messages.error(
+                request,
+                'No account found with that email address.'
+            )
+    return render(request, 'password_reset.html')
+
+def resetPasswordConfirm(request, token):
+    stored_token = request.session.get('reset_token')
+    stored_email = request.session.get('reset_email')
+    expiry = request.session.get('reset_expiry')
+    
+    # Validate token and expiry
+    if not all([stored_token, stored_email, expiry]):
+        messages.error(request, 'Invalid password reset link.')
+        return redirect('login')
+    
+    if stored_token != token:
+        messages.error(request, 'Invalid password reset token.')
+        return redirect('login')
+    
+    if datetime.datetime.now() > datetime.datetime.fromisoformat(expiry):
+        messages.error(request, 'Password reset link has expired.')
+        return redirect('login')
+    
+    if request.method == 'POST':
+        password = request.POST.get('password')
+        confirm_password = request.POST.get('confirm_password')
+        
+        if password != confirm_password:
+            messages.error(request, 'Passwords do not match.')
+            return render(request, 'password_reset_confirm.html')
+        
+        if len(password) < 8:
+            messages.error(request, 'Password must be at least 8 characters long.')
+            return render(request, 'password_reset_confirm.html')
+        
+        try:
+            user = User.objects.get(email=stored_email)
+            user.password = make_password(password)
+            user.save()
+            
+            # Clear session data
+            del request.session['reset_token']
+            del request.session['reset_email']
+            del request.session['reset_expiry']
+            
+            return redirect('login')
+        except User.DoesNotExist:
+            messages.error(request, 'User not found.')
+            return redirect('login')
+    return render(request, 'password_reset_confirm.html')
 
 def userlogout(request):
     logout(request)
@@ -327,9 +424,18 @@ def update_vendor_availability(request, vendor_id):
 @login_required(login_url='login')
 def userProfile(request):
     user, created = User.objects.get_or_create(id=request.user.id)
-    registered_events = EventRegistration.objects.filter(client=user)
-    data = {'user': user, 'registered_events': registered_events}
+    registered_events = EventRegistration.objects.filter(client=request.user)
+    my_tickets = Ticket.objects.filter(
+        event__in=registered_events.values_list('event', flat=True)
+    ).select_related('event', 'ticket_type').order_by('-is_valid', 'event__date')
+    
+    data = {
+        'user': user, 
+        'my_tickets': my_tickets,
+        'registered_events': registered_events
+    }
     return render(request, 'userProfile.html', context=data)
+
 
 @login_required(login_url='login')
 def editProfile(request):
@@ -415,16 +521,17 @@ def ticket_purchase(request, event_id):
             'General Admission': 500, 
             'VIP': 2000
         }.get(ticket_type.name, 0)
-        
-        # Create invoice
-        invoice = Invoice.objects.create(
-            client=request.user,
-            event=event,
-            total_amount=price * quantity,
-            invoice_date=timezone.now(),
-            payment_status='Pending'
-        )
-        
+                
+        # Create invoice only for paid ticket types
+        if ticket_type.name in ['VIP', 'General Admission']:
+            invoice = Invoice.objects.create(
+                client=request.user,
+                event=event,
+                total_amount=price * quantity,
+                invoice_date=timezone.now(),
+                payment_status='Pending'
+            )
+            
         # Create ticket using registration's ticket type
         ticket = Ticket.objects.create(
             ticket_type=ticket_type,
@@ -438,6 +545,18 @@ def ticket_purchase(request, event_id):
         'event': event,
         'selected_ticket_type': registration.ticket_type
     })
+    
+@login_required(login_url='login')
+def cancelTicket(request, ticket_id):
+    ticket = get_object_or_404(Ticket, id=ticket_id, event__eventregistration__client=request.user)
+    
+    if request.method == 'POST':
+        ticket.is_valid = False
+        ticket.save()
+        return redirect('user-profile')
+    
+    return render(request, 'cancelTicket.html', {'ticket': ticket})
+
     
 @login_required
 def eventUnregister(request, event_id):
@@ -608,6 +727,7 @@ def download_ticket(request, ticket_id):
     p.drawString(100, 760, f"Ticket Code: {ticket.unique_code}")
     p.drawString(100, 740, f"Date: {ticket.event.date}")
     p.drawString(100, 720, f"Venue: {ticket.event.location}")
+    p.drawString(100, 700, f"Ticket Validity(True or False): {ticket.is_valid}")
     p.save()
     
     return response
@@ -616,3 +736,41 @@ class InvoiceDetailView(DetailView):
     model = Invoice
     template_name = 'invoice_detail.html'
     context_object_name = 'invoice'
+    
+def changePassword(request):
+    if request.method == 'POST':
+        form = ChangePasswordForm(request.POST)
+        if form.is_valid():
+            user = request.user
+            old_password = form.cleaned_data.get('password')
+            new_password = form.cleaned_data.get('new_password')
+            confirm_password = form.cleaned_data.get('confirm_password')
+            
+            # First validate that new passwords match
+            if new_password != confirm_password:
+                messages.error(request, 'New passwords do not match.')
+                return render(request, 'changePassword.html', {'form': form})
+            
+            # Then check if old password is correct
+            if not user.check_password(old_password):
+                messages.error(request, 'Current password is incorrect.')
+                return render(request, 'changePassword.html', {'form': form})
+            
+            # Basic password validation
+            if len(new_password) < 8:
+                messages.error(request, 'Password must be at least 8 characters long.')
+                return render(request, 'changePassword.html', {'form': form})
+            
+            # If all validations pass, change the password
+            user.set_password(new_password)
+            user.save()
+            
+            # Keep the user logged in
+            update_session_auth_hash(request, user)
+            
+            messages.success(request, 'Your password was successfully updated!')
+            return redirect('user-profile')  # Assuming your profile URL name is 'user-profile'
+    else:
+        form = ChangePasswordForm()
+    
+    return render(request, 'changePassword.html', {'form': form})
