@@ -16,19 +16,178 @@
   <body class="bg-light">
     {% include 'navbar.html' %}
 
-    <div class="container mt-5 text-center">
-      <div class="card shadow">
-        <div class="card-header bg-primary text-white">
-          <h3>Welcome {{ user.first_name }}</h3>
-        </div>
-        <div class="card-body">
-          <p class="lead">Manage your events easily with Event Manager.</p>
+    <div class="container mt-5">
+      <div class="text-center">
+        <div class="card shadow">
+          <div class="card-header bg-primary text-white">
+            <h3>Welcome, {{ user.first_name }}</h3>
+          </div>
+          <div class="card-body">
+            {% if user.is_authenticated %}
+            <p class="lead">
+              You're logged in as <strong>{{ role }}</strong>.
+              {% if user|is_EventPlanner or user|is_Admin %}
+              Manage your events easily with Event Manager.
+              {% endif %}
+            </p>
+            {% else %}
+            <p class="lead text-danger">
+              Please login to register for events. If you're a new user, please
+              register first.
+            </p>
+            <p>
+              You can explore upcoming events and vendors. Vendors and event
+              planners should contact the admin for registration. Thank you for
+              visiting!
+            </p>
+            {% endif %}
+          </div>
         </div>
       </div>
+
+      {% if user|is_Client %}
+      <div class="mt-4">
+        <h4 class="text-center">Your Dashboard</h4>
+        <div class="row">
+          <div class="col-md-6">
+            <h5>Registered Events</h5>
+            <ul class="list-group">
+              {% for event in registered_events %}
+              <li class="list-group-item">
+                {{ event.name }} - {{ event.date }}
+              </li>
+              {% empty %}
+              <li class="list-group-item">No registered events.</li>
+              {% endfor %}
+            </ul>
+          </div>
+          <div class="col-md-6">
+            <h5>Upcoming Events</h5>
+            <ul class="list-group">
+              {% for event in upcoming_events %}
+              <li class="list-group-item">
+                {{ event.name }} - {{ event.date }}
+              </li>
+              {% empty %}
+              <li class="list-group-item">No upcoming events.</li>
+              {% endfor %}
+            </ul>
+          </div>
+        </div>
+      </div>
+      {% elif user|is_EventPlanner %}
+      <div class="mt-4">
+        <h4 class="text-center">Event Planner Dashboard</h4>
+        <h5>Created Events</h5>
+        {% if created_events %}
+        {% for event in created_events %}
+            <div>
+                <h3>{{ event.name }}</h3>
+                <p>Date: {{ event.date }}</p>
+            </div>
+        {% endfor %}
+        <div>
+            <p>Total Revenue: ${{ total_revenue }}</p>
+            <p>Total Tickets: {{ total_tickets }}</p>
+        </div>
+        {% else %}
+        <p>No events created yet.</p>
+        {% endif %}
+        </ul>
+        <div class="mt-3">
+          <p><strong>Total Revenue:</strong> ${{ total_revenue }}</p>
+          <p><strong>Total Tickets:</strong> {{ total_tickets }}</p>
+        </div>
+      </div>
+      {% elif user|is_Vendor %}
+      <div class="mt-4">
+        <h4 class="text-center">Vendor Dashboard</h4>
+        <div class="row">
+          <div class="col-md-6">
+            <div class="card shadow">
+              <div class="card-header bg-primary text-white">
+                <h5>Total Feedbacks</h5>
+              </div>
+              <div class="card-body">
+                <p class="display-6">{{ total_feedbacks }}</p>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="card shadow">
+              <div class="card-header bg-primary text-white">
+                <h5>Total Performance Records</h5>
+              </div>
+              <div class="card-body">
+                <p class="display-6">{{ total_performance }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="mt-4">
+          <h5>Vendors</h5>
+          <div class="row">
+            {% for vendor in all_vendors %}
+            <div class="col-md-4">
+              <div class="card mb-3 shadow">
+                <div class="card-body">
+                  <h5 class="card-title">{{ vendor.name }}</h5>
+                  <p class="card-text">{{ vendor.description }}</p>
+                  <div class="d-grid gap-2">
+                    <a
+                      href="{% url 'vendor-details' vendor.id %}"
+                      class="btn btn-primary btn-sm"
+                      >View Details</a
+                    >
+                    <a
+                      href="{% url 'view-all-feedbacks' vendor.id %}"
+                      class="btn btn-secondary btn-sm"
+                      >View Feedbacks</a
+                    >
+                    <a
+                      href="{% url 'vendor-feedback' vendor.id %}"
+                      class="btn btn-success btn-sm"
+                      >Give Feedback</a
+                    >
+                  </div>
+                </div>
+              </div>
+            </div>
+            {% empty %}
+            <p class="text-muted">No vendors available.</p>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      {% elif user|is_Admin %}
+      <div class="mt-4">
+        <h4 class="text-center">Admin Dashboard</h4>
+        <h5>All Events</h5>
+        <ul class="list-group">
+          {% for event in all_events %}
+          <li class="list-group-item">{{ event.name }} - {{ event.date }}</li>
+          {% empty %}
+          <li class="list-group-item">No events available.</li>
+          {% endfor %}
+        </ul>
+        <div class="mt-3">
+          <p><strong>Total Revenue:</strong> ${{ total_revenue }}</p>
+          <p><strong>Total Tickets:</strong> {{ total_tickets }}</p>
+        </div>
+      </div>
+      {% endif %}
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js" integrity="sha384-IQsoLXl5PILFhosVNubq5LC7Qb9DXgDA9i+tQ8Zj3iwWAwPtgFTxbJ8NT4GN1R8p" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.min.js" integrity="sha384-cVKIPhGWiC2Al4u+LWgxfKTRIcfu0JTxR+EQDz/bgldoEyl4H0zUF0QKbrJ0EcQF" crossorigin="anonymous"></script>
-    
+    <script
+      src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"
+      integrity="sha384-IQsoLXl5PILFhosVNubq5LC7Qb9DXgDA9i+tQ8Zj3iwWAwPtgFTxbJ8NT4GN1R8p"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.min.js"
+      integrity="sha384-cVKIPhGWiC2Al4u+LWgxfKTRIcfu0JTxR+EQDz/bgldoEyl4H0zUF0QKbrJ0EcQF"
+      crossorigin="anonymous"
+    ></script>
   </body>
 </html>

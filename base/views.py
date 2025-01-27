@@ -2,10 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404, HttpResponse
 from .forms import UserRegistrationForm, LoginForm, EventCreationForm, VendorForm, VendorAssignmentForm, UserForm, EventRegistrationForm, LogisticsForm, InventoryForm, EventReviewForm, VendorFeedbackForm, ChangePasswordForm
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
-from django.urls import reverse_lazy
-from django.contrib.auth.views import PasswordResetView
-from django.contrib.messages.views import SuccessMessageMixin
-from .models import Event, EventCategory, EventRegistration, Vendor, VendorCategory, VendorPerformance, Ticket, VendorAssignment, TicketType, Invoice, Logistics, Inventory, EventReview, VendorFeedback
+from .models import Event, EventCategory, EventRegistration, Vendor, VendorPerformance, Ticket, VendorAssignment, Invoice, Logistics, Inventory, EventReview, VendorFeedback
 from django.views.generic import DetailView, ListView
 from django.contrib.auth.models import Group, User
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -17,12 +14,15 @@ from django.core.mail import send_mail
 from reportlab.pdfgen import canvas
 from django.conf import settings
 from django.utils.crypto import get_random_string
-import datetime, time
+from django_filters.views import FilterView
+import django_filters
+from django.db.models import Q, Sum, Count
+import datetime
 
 # Create your views here.
 
-def home(request):
-    return render(request, 'home.html')
+# def home(request):
+#     return render(request, 'home.html')
 
 def userRegistration(request):
     form = UserRegistrationForm()
@@ -252,7 +252,8 @@ def eventCreation(request):
     if request.method == 'POST':
         form = EventCreationForm(request.POST)
         if form.is_valid():
-            event = form.save()
+            event = form.save(commit=False)
+            event.created_by = request.user
             event.save()
             return redirect('event-details', pk=event.pk)
         else:
@@ -267,26 +268,64 @@ class EventDetailView(DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         event = self.get_object()
-        context['is_user_registered'] = EventRegistration.objects.filter(
-            event=event,
-            client=self.request.user
-        ).exists()
-        vendor_assignment = VendorAssignment.objects.filter(event=event).first()
-        context['assigned_vendors'] = vendor_assignment.vendor.name if vendor_assignment else ''
+        
+        if self.request.user.is_authenticated:
+            context['is_user_registered'] = EventRegistration.objects.filter(
+                event=event,
+                client=self.request.user
+            ).exists()
+            vendor_assignment = VendorAssignment.objects.filter(event=event).first()
+            context['assigned_vendors'] = vendor_assignment.vendor.name if vendor_assignment else ''
+        else:
+            context['is_user_registered'] = False
+            context['assigned_vendors'] = ''
+            
         return context
 
+class EventFilter(django_filters.FilterSet):
+    categories = django_filters.ModelMultipleChoiceFilter(
+        queryset=EventCategory.objects.all(),
+        label="Categories",
+        required=False,
+        method='filter_categories'
+    )
+    date = django_filters.DateFilter(field_name='date', lookup_expr='date')  # If date is DateTimeField
+    location = django_filters.CharFilter(lookup_expr='icontains')
+    vip_cost = django_filters.NumberFilter(lookup_expr='lte')  # Example: filter events where VIP cost <= value
+    standard_cost = django_filters.NumberFilter(lookup_expr='lte')
+    
+    def filter_categories(self, queryset, name, value):
+        if value:
+            return queryset.filter(categories__in=value)
+        return queryset
+    
+    class Meta:
+        model = Event
+        fields = ['categories', 'date', 'location', 'vip_cost', 'standard_cost']
 
-class EventListView(ListView):
+
+class EventListView(FilterView):
     model = Event
     template_name = 'eventList.html'
     context_object_name = 'events'
-    filterset_fields = ['category', 'date', 'location', 'price']
-    search_fields = ['name', 'description']
+    filterset_class = EventFilter
+    
     def get_queryset(self):
+        queryset = Event.objects.all()
+        search_query = self.request.GET.get('search', '')
+        
+        if search_query:
+            queryset = Event.objects.filter(
+                Q(name__icontains=search_query) |
+                Q(description__icontains=search_query) |
+                Q(location__icontains=search_query)
+            ).distinct()
+            return queryset
+            
         if is_Admin(self.request.user) or is_Client(self.request.user) or is_Vendor(self.request.user):
-            return Event.objects.all()
+            return queryset
         else:
-            return Event.objects.filter(created_by=self.request.user)
+            return Event.objects.all()
 
 @login_required(login_url='login')
 @user_passes_test(lambda u: is_Admin(u) or is_EventPlanner(u))
@@ -295,7 +334,9 @@ def eventUpdate(request, pk):
     if request.method == 'POST':
         form = EventCreationForm(request.POST, instance=event_obj)
         if form.is_valid():
-            form.save()
+            event = form.save(commit=False)
+            event.created_by = request.user
+            event.save()
             return redirect('event-details', pk=pk)  # Use the pk parameter instead of form.pk
         else:
             return render(request, 'eventUpdate.html', context = {'form': form})
@@ -400,7 +441,7 @@ def vendor_assigned_events(request,vendor_id):
     if VendorAssignment.objects.filter(vendor_id=vendor_id).exists():
         vendor = get_object_or_404(Vendor, id=vendor_id)
         assignments = VendorAssignment.objects.filter(vendor=vendor).select_related('event')
-        return render(request, 'vendorAssignedEvents.html', {'assignments': assignments})
+        return render(request, 'vendorAssignedEvents.html', {'assignments': assignments, 'vendor': vendor})
     else:
         return render(request, 'vendorAssignedEvents.html', {'assignments': []})
 
@@ -412,7 +453,6 @@ def get_available_vendors(request):
     )
     available_vendors = Vendor.objects.filter(is_available=True)
 
-
 @login_required(login_url='login')
 @user_passes_test(lambda u: is_Admin(u) or is_Vendor(u))
 def update_vendor_availability(request, vendor_id):
@@ -423,19 +463,32 @@ def update_vendor_availability(request, vendor_id):
 
 @login_required(login_url='login')
 def userProfile(request):
-    user, created = User.objects.get_or_create(id=request.user.id)
+    user = request.user
     registered_events = EventRegistration.objects.filter(client=request.user)
     my_tickets = Ticket.objects.filter(
         event__in=registered_events.values_list('event', flat=True)
-    ).select_related('event', 'ticket_type').order_by('-is_valid', 'event__date')
+    ).select_related('event', 'ticket_type')
     
-    data = {
-        'user': user, 
+    # For admin users
+    if request.user.is_staff:
+        all_invoices = Invoice.objects.all().select_related('event', 'client')
+    else:
+        all_invoices = None
+        
+    # For event planners
+    if request.user.groups.filter(name='EventPlanner').exists():
+        planner_invoices = Invoice.objects.filter(event__created_by=request.user)
+    else:
+        planner_invoices = None
+        
+    context = {
+        'user': user,
         'my_tickets': my_tickets,
-        'registered_events': registered_events
+        'all_invoices': all_invoices,
+        'planner_invoices': planner_invoices
     }
-    return render(request, 'userProfile.html', context=data)
-
+    
+    return render(request, 'userProfile.html', context)
 
 @login_required(login_url='login')
 def editProfile(request):
@@ -732,9 +785,26 @@ def download_ticket(request, ticket_id):
     
     return response
 
+@login_required(login_url='login')
+def download_invoice(request, invoice_id):
+    invoice = get_object_or_404(Invoice, id=invoice_id)
+    
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="invoice_{invoice.id}.pdf"'
+    
+    p = canvas.Canvas(response)
+    p.drawString(100, 800, f"Invoice: {invoice.id}")
+    p.drawString(100, 780, f"Event: {invoice.event.name}")
+    p.drawString(100, 760, f"Amount: ${invoice.total_amount}")
+    p.drawString(100, 740, f"Date: {invoice.invoice_date}")
+    p.drawString(100, 720, f"Status: {invoice.payment_status}")
+    p.save()
+    
+    return response
+
 class InvoiceDetailView(DetailView):
     model = Invoice
-    template_name = 'invoice_detail.html'
+    template_name = 'invoiceDetail.html'
     context_object_name = 'invoice'
     
 def changePassword(request):
@@ -774,3 +844,96 @@ def changePassword(request):
         form = ChangePasswordForm()
     
     return render(request, 'changePassword.html', {'form': form})
+
+@login_required(login_url='login')
+@user_passes_test(lambda u: is_Admin(u))
+def changeInvoiceStatus(request, invoice_id):
+    invoice = get_object_or_404(Invoice, id=invoice_id)
+    
+    # Define status cycle order
+    status_cycle = ['Pending', 'Paid', 'Cancelled']
+    current_index = status_cycle.index(invoice.payment_status)
+    next_index = (current_index + 1) % len(status_cycle)
+    
+    # Update to next status in cycle
+    invoice.payment_status = status_cycle[next_index]
+    invoice.save()
+    return redirect('invoice-detail', pk=invoice.id)
+
+def attendance_report(request, event_id):
+    event = Event.objects.get(id=event_id)
+    tickets = Ticket.objects.filter(event=event).count()
+    attendees_present = Ticket.objects.filter(event=event, is_valid=True).count()
+    
+    context = {
+        'event': event,
+        'tickets': tickets,
+        'attendees_present': attendees_present,
+    }
+    return render(request, 'attendanceReport.html', context)
+
+def revenue_report(request, event_id):
+    event = Event.objects.get(id=event_id)
+    ticket_revenue = Ticket.objects.filter(event=event).aggregate(Sum('price'))['price__sum'] or 0
+    vendor_fees = Invoice.objects.filter(event=event).aggregate(Sum('total_amount'))['total_amount__sum'] or 0
+
+    context = {
+        'event': event,
+        'ticket_revenue': ticket_revenue,
+        'vendor_fees': vendor_fees,
+        'total_revenue': ticket_revenue + vendor_fees,
+    }
+    return render(request, 'revenueReport.html', context)
+
+def analytics_dashboard(request):
+    user = request.user
+    context = {'role': 'Guest'}  # Default context for non-authenticated users
+
+    if user.groups.filter(name='Client').exists():
+        registered_events = Event.objects.filter(eventregistration__client=user)
+        upcoming_events = registered_events.filter(date__gte=timezone.now()).order_by('date')
+
+        context = {
+            'role': 'Client',
+            'registered_events': registered_events,
+            'upcoming_events': upcoming_events,
+        }
+
+    elif user.groups.filter(name='EventPlanner').exists():
+        created_events = Event.objects.filter(created_by=user).order_by('date')
+        total_revenue = Invoice.objects.filter(event__in=created_events).aggregate(Sum('total_amount'))['total_amount__sum'] or 0
+        total_tickets = Ticket.objects.filter(event__in=created_events).count()
+
+        context = {
+            'role': 'EventPlanner',
+            'created_events': created_events,
+            'total_revenue': total_revenue,
+            'total_tickets': total_tickets,
+        }
+
+    elif user.groups.filter(name='Vendor').exists():
+        all_vendors = Vendor.objects.all()
+        total_feedbacks = VendorFeedback.objects.filter(vendor__in=all_vendors).count()
+        total_performance = VendorPerformance.objects.filter(vendor__in=all_vendors).count()
+        
+        context = {
+            'role': 'Vendor',
+            'total_feedbacks': total_feedbacks,
+            'total_performance': total_performance,
+            'all_vendors': all_vendors,
+        }
+        
+    
+    elif user.is_staff:
+        all_events = Event.objects.all().order_by('date')
+        total_revenue = Invoice.objects.aggregate(Sum('total_amount'))['total_amount__sum'] or 0
+        total_tickets = Ticket.objects.aggregate(Count('id'))['id__count'] or 0
+
+        context = {
+            'role': 'Admin',
+            'all_events': all_events,
+            'total_revenue': total_revenue,
+            'total_tickets': total_tickets,
+        }
+
+    return render(request, 'home.html', context)

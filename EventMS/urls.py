@@ -20,7 +20,7 @@ from base import views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', views.home, name='home'),
+    path('', views.analytics_dashboard, name='home'),
     path('register/', views.userRegistration, name = 'register'),
     path('login/', views.userLogin, name = 'login'),
     path('logout/', views.userlogout, name = 'logout'),
@@ -46,7 +46,7 @@ urlpatterns = [
     path('event-details/<int:event_id>/unregister/', views.eventUnregister, name='event-unregister'),
     path('event-registration-list/', views.event_registration_list, name='event-registration-list'),
     path('ticket-purchase/<int:event_id>/', views.ticket_purchase, name='ticket-purchase'),
-    path('invoice/<int:invoice_id>/', views.InvoiceDetailView.as_view(), name='invoice-detail'),
+    path('invoice/<int:pk>/', views.InvoiceDetailView.as_view(), name='invoice-detail'),
     path('event-details/<int:event_id>/status/', views.registeredStatus, name='registered-status'),
     path('logistics/<int:event_id>/', views.logistics_management, name='logistics'),
     path('logistics/<int:logistics_id>/delete/', views.logistics_delete, name='logistics-delete'),
@@ -60,8 +60,13 @@ urlpatterns = [
     path('feedback-for-vendor/<int:vendor_id>', views.feedback_for_vendor, name='vendor-feedback'),
     path('view-all-feedbacks/<int:vendor_id>', views.view_all_feedbacks, name='view-all-feedbacks'),
     path('ticket/<int:ticket_id>/download/', views.download_ticket, name='download-ticket'),
+    path('download-invoice/<int:invoice_id>/', views.download_invoice, name='download-invoice'),
+    path('invoice/<int:invoice_id>/change-status/', views.changeInvoiceStatus, name='change-invoice-status'),
+    path('invoice/<int:invoice_id>/change-status/', views.changeInvoiceStatus, name='change-invoice-status'),
     path('cancel-ticket/<int:ticket_id>/', views.cancelTicket, name='cancel-ticket'),
     path('password-reset/', views.resetPassword, name='password-reset'),
     path('password-reset-confirm/<str:token>/', views.resetPasswordConfirm, name='password-reset-confirm'),
     path('change-password/', views.changePassword, name='change-password'),
+    path('attendance_report/<int:event_id>/', views.attendance_report, name='attendance-report'),
+    path('revenue_report/<int:event_id>/', views.revenue_report, name='revenue-report'),
 ]

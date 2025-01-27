@@ -36,7 +36,7 @@
                             {{ form.as_p }}
                             <div class="mt-4">
                                 <button type="submit" class="btn btn-primary btn-lg">Assign Vendor</button>
-                                <a href="/event-detail/{{ event.id }}/" class="btn btn-secondary btn-lg ms-2">Cancel</a>
+                                <a href="{% url 'event-details' event.id %}" class="btn btn-secondary btn-lg ms-2">Cancel</a>
                             </div>
                         </form>
                     </div>
