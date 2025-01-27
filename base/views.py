@@ -357,7 +357,7 @@ def create_vendor_profile(request):
     if request.method == 'POST':
         form = VendorForm(request.POST)
         if form.is_valid():
-            vendor = form.save(commit=False)
+            vendor = form.save()
             selected_categories = form.cleaned_data.get('categories')
             vendor.categories.set(selected_categories)
             vendor.user = request.user
@@ -424,7 +424,7 @@ def assign_vendor(request, event_id):
             vendor.save()
             
             assignment.save()
-            return redirect('assign-vendors', pk=event.id)
+            return redirect('assign-vendor', event_id=event.id)
     else:
         form = VendorAssignmentForm()
         # Limit vendor choices to only available vendors
@@ -899,13 +899,13 @@ def analytics_dashboard(request):
             'upcoming_events': upcoming_events,
         }
 
-    elif user.groups.filter(name='EventPlanner').exists():
+    elif user.groups.filter(name='Event Planner').exists():
         created_events = Event.objects.filter(created_by=user).order_by('date')
         total_revenue = Invoice.objects.filter(event__in=created_events).aggregate(Sum('total_amount'))['total_amount__sum'] or 0
         total_tickets = Ticket.objects.filter(event__in=created_events).count()
 
         context = {
-            'role': 'EventPlanner',
+            'role': 'Event Planner',
             'created_events': created_events,
             'total_revenue': total_revenue,
             'total_tickets': total_tickets,
